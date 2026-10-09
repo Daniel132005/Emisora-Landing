@@ -1,0 +1,23 @@
+# Dependencias y build
+node_modules
+dist
+.vite
+
+# Variables de entorno (pueden tener claves)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Editor y sistema
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de pruebas
+public/_t.html
