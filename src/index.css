@@ -445,3 +445,170 @@ a { color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* --- Nuevos estilos para integración Icecast y estado en vivo --- */
+.live__header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.live__listeners-badge {
+  background: rgba(255, 42, 0, 0.15);
+  color: #ff5733;
+  border: 1px solid rgba(255, 42, 0, 0.3);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.live__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+}
+.live__dot--active {
+  background: var(--orange-red);
+  box-shadow: 0 0 0 0 rgba(255, 42, 0, .6);
+  animation: pulse 1.4s infinite;
+}
+.live__dot--off {
+  background: #64748b;
+  box-shadow: none;
+  animation: none;
+  opacity: 0.65;
+}
+.mini__live--off {
+  color: #94a3b8 !important;
+}
+.player--off-air {
+  opacity: 0.95;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.player__status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.badge-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.badge-state--live {
+  background: rgba(255, 42, 0, 0.2);
+  color: #ff6b4a;
+  border: 1px solid rgba(255, 42, 0, 0.4);
+}
+.badge-state--off {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+.player__source-badge {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.player__scheduled-notice {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  opacity: 0.85;
+  margin: 4px 0 12px;
+  line-height: 1.4;
+}
+.player__play--off {
+  opacity: 0.85;
+}
+
+/* --- Estilos de Podcasts y Programas Grabados --- */
+.podcast-bar {
+  background: #1e1b4b;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.podcast-bar__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #f8fafc;
+}
+.podcast-bar__tag {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a5b4fc;
+  font-weight: 700;
+}
+.podcast-bar__audio {
+  height: 38px;
+  outline: none;
+  border-radius: 999px;
+}
+.podcast__banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.podcast__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.podcast__play-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  background: var(--orange);
+  color: #fff;
+  font-size: 1.1rem;
+  display: grid;
+  place-items: center;
+  transition: transform .15s, background .15s;
+}
+.podcast__play-btn:hover {
+  background: var(--orange-red);
+  transform: scale(1.08);
+}
+.podcast__footer-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 10px;
+}
+.podcast.is-active {
+  border: 1px solid rgba(255, 71, 87, 0.6);
+  box-shadow: 0 10px 30px rgba(255, 71, 87, 0.15);
+}

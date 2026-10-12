@@ -7,7 +7,7 @@ export const station = {
   timeZone: 'America/Caracas',
   timeZoneLabel: 'Hora Venezuela',
   // URL del stream de audio (Icecast/Shoutcast/Zeno, etc.). Reemplazar por la real.
-  streamUrl: 'https://stream.zeno.fm/REEMPLAZAR',
+  streamUrl: import.meta.env.VITE_ICECAST_URL || 'http://localhost:8000/live.mp3',
   phone: '+58 414 000 0000',
   whatsapp: '584140000000',
   email: 'publicidad@zumaque905.com',
