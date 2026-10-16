@@ -22,6 +22,7 @@ export const station = {
 
 export const nav = [
   { label: 'Inicio', href: '#inicio' },
+  { label: 'Noticias', href: '/noticias' },
   { label: 'Programación', href: '#programacion' },
   { label: 'En vivo', href: '#en-vivo' },
   { label: 'Podcasts', href: '#podcasts' },

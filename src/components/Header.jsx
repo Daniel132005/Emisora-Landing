@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { nav } from '../data/station.js'
+import NavLink from './NavLink.jsx'
 import { useStation } from '../context/StationContext.jsx'
 
 export default function Header() {
@@ -9,9 +10,9 @@ export default function Header() {
   return (
     <header className="header">
       <div className="container header__inner">
-        <a href="#inicio" className="header__logo" aria-label={`${station.name} — inicio`}>
+        <NavLink href="#inicio" className="header__logo" aria-label={`${station.name} — inicio`}>
           <img src={station.logoUrl} alt={station.name} />
-        </a>
+        </NavLink>
 
         <button
           className="header__toggle"
@@ -25,9 +26,9 @@ export default function Header() {
 
         <nav id="main-nav" className={`header__nav ${open ? 'is-open' : ''}`}>
           {nav.map((item) => (
-            <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
+            <NavLink key={item.href} href={item.href} onClick={() => setOpen(false)}>
               {item.label}
-            </a>
+            </NavLink>
           ))}
         </nav>
       </div>

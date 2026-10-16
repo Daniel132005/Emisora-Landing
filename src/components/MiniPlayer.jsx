@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { defaultShow } from '../data/station.js'
 import { useStation } from '../context/StationContext.jsx'
 import { useCurrentShow } from '../hooks/useCurrentShow.js'
@@ -11,12 +12,17 @@ export default function MiniPlayer() {
   const station = useStation()
   const scheduled = useCurrentShow() ?? defaultShow
   const [visible, setVisible] = useState(false)
+  const { pathname } = useLocation()
 
   const showTitle = (isLive && liveInfo.program) ? liveInfo.program : scheduled.show
 
   useEffect(() => {
     const target = document.querySelector('.player')
-    if (!target) return
+    // En páginas sin el reproductor grande (noticias), la barra está siempre a mano
+    if (!target) {
+      setVisible(true)
+      return
+    }
     const update = () => setVisible(target.getBoundingClientRect().bottom < 0)
     update()
     window.addEventListener('scroll', update, { passive: true })
@@ -25,7 +31,7 @@ export default function MiniPlayer() {
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
-  }, [])
+  }, [pathname])
 
   return (
     <div className={`mini ${visible ? 'is-visible' : ''}`} aria-hidden={!visible} inert={visible ? undefined : ''}>

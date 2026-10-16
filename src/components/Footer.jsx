@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { nav } from '../data/station.js'
 import { useStation } from '../context/StationContext.jsx'
 import SocialIcon, { SOCIAL_NETWORKS } from './SocialIcon.jsx'
+import NavLink from './NavLink.jsx'
 
 export default function Footer() {
   const station = useStation()
@@ -26,7 +27,7 @@ export default function Footer() {
           <h3>Enlaces</h3>
           <ul>
             {nav.map((n) => (
-              <li key={n.href}><a href={n.href}>{n.label}</a></li>
+              <li key={n.href}><NavLink href={n.href}>{n.label}</NavLink></li>
             ))}
           </ul>
         </div>
