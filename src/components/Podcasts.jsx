@@ -30,11 +30,11 @@ export default function Podcasts() {
   useEffect(() => {
     async function loadRecordings() {
       try {
-        const res = await fetch(`${apiUrl}/api/recordings`)
+        // Ruta pública: solo devuelve las grabaciones publicadas, sin necesidad de sesión
+        const res = await fetch(`${apiUrl}/api/public/recordings`)
         if (res.ok) {
           const list = await res.json()
-          const published = list.filter((r) => r.published && r.url)
-          setPublishedRecordings(published)
+          setPublishedRecordings(list.filter((r) => r.url))
         }
       } catch {
         // En caso de que no haya servidor, se mantienen los podcasts default
