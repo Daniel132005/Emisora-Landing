@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { nav } from '../data/station.js'
 import NavLink from './NavLink.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 import { useStation } from '../context/StationContext.jsx'
 
 export default function Header() {
@@ -14,23 +15,27 @@ export default function Header() {
           <img src={station.logoUrl} alt={station.name} />
         </NavLink>
 
-        <button
-          className="header__toggle"
-          aria-expanded={open}
-          aria-controls="main-nav"
-          aria-label="Abrir menú"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span /><span /><span />
-        </button>
+        <div className="header__end">
+          <nav id="main-nav" className={`header__nav ${open ? 'is-open' : ''}`}>
+            {nav.map((item) => (
+              <NavLink key={item.href} href={item.href} onClick={() => setOpen(false)}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
 
-        <nav id="main-nav" className={`header__nav ${open ? 'is-open' : ''}`}>
-          {nav.map((item) => (
-            <NavLink key={item.href} href={item.href} onClick={() => setOpen(false)}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+          <ThemeToggle />
+
+          <button
+            className="header__toggle"
+            aria-expanded={open}
+            aria-controls="main-nav"
+            aria-label="Abrir menú"
+            onClick={() => setOpen((o) => !o)}
+          >
+            <span /><span /><span />
+          </button>
+        </div>
       </div>
     </header>
   )

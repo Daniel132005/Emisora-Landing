@@ -8,7 +8,7 @@ import VolumeControl from './VolumeControl.jsx'
 
 /** Barra fija abajo que aparece cuando el reproductor principal sale de pantalla hacia arriba. */
 export default function MiniPlayer() {
-  const { playing, loading, isLive, liveInfo, toggle } = useRadio()
+  const { playing, loading, reconnecting, isLive, liveInfo, toggle } = useRadio()
   const station = useStation()
   const scheduled = useCurrentShow() ?? defaultShow
   const [visible, setVisible] = useState(false)
@@ -38,16 +38,16 @@ export default function MiniPlayer() {
       <button
         className="player__play mini__play"
         onClick={toggle}
-        aria-label={playing ? 'Pausar' : 'Reproducir'}
+        aria-label={reconnecting ? 'Cancelar reconexión' : playing ? 'Pausar' : 'Reproducir'}
         disabled={loading}
       >
-        {loading ? <span className="spinner" /> : playing ? '⏸' : '▶'}
+        {loading || reconnecting ? <span className="spinner" /> : playing ? '⏸' : '▶'}
       </button>
       <img src={station.logoUrl} alt="" className="mini__cover" />
       <a href="#en-vivo" className="mini__info">
         <span className={'mini__live' + (isLive ? ' mini__live--active' : ' mini__live--off')}>
           <span className={'live__dot' + (isLive ? ' live__dot--active' : ' live__dot--off')} />
-          {isLive ? 'En vivo' : 'Fuera del aire'}
+          {reconnecting ? 'Reconectando…' : isLive ? 'En vivo' : 'Fuera del aire'}
         </span>
         <strong>{showTitle}</strong>
       </a>

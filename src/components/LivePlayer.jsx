@@ -7,7 +7,7 @@ import VolumeControl from './VolumeControl.jsx'
 
 export default function LivePlayer() {
   const scheduled = useCurrentShow() ?? defaultShow
-  const { playing, loading, error, isLive, liveInfo, listeners, streamSource, toggle } = useRadio()
+  const { playing, loading, reconnecting, error, isLive, liveInfo, listeners, toggle } = useRadio()
   const [shared, setShared] = useState(false)
   const station = useStation()
 
@@ -39,53 +39,61 @@ export default function LivePlayer() {
           <span className={'live__dot' + (isLive ? ' live__dot--active' : ' live__dot--off')} />
           {isLive ? 'En vivo ahora' : 'Fuera del aire'}
         </h2>
+        {isLive && listeners > 0 && (
+          <span className="live__listeners-badge" aria-live="polite">
+            🎧 {listeners} {listeners === 1 ? 'oyente' : 'oyentes'} ahora
+          </span>
+        )}
       </div>
 
       <div className={'player' + (!isLive ? ' player--off-air' : '')}>
-        <img src={station.logoUrl} alt="" className="player__cover" />
-        <div className="player__body">
-          <div className="player__status-line">
-            <span className={'badge-state' + (isLive ? ' badge-state--live' : ' badge-state--off')}>
-              {isLive ? '🔴 TRANSMISIÓN EN DIRECTO' : '⏳ PROGRAMACIÓN HABITUAL'}
-            </span>
-          </div>
-
-          <p className="player__now" aria-live="polite">
-            <strong>{showTitle}</strong> <span>· {showHosts}</span>
-          </p>
-
-          {!isLive && (
-            <p className="player__scheduled-notice">
-              La señal en vivo se activa cuando el locutor inicia transmisión. ¡Conéctate en los horarios de programación!
-            </p>
-          )}
-
-          <div className="player__controls">
-            <button
-              className={'player__play' + (!isLive ? ' player__play--off' : '')}
-              onClick={toggle}
-              aria-label={playing ? 'Pausar' : 'Reproducir'}
-              disabled={loading}
-              title={!isLive ? 'Emisora fuera del aire' : (playing ? 'Pausar emisión' : 'Escuchar en vivo')}
-            >
-              {loading ? <span className="spinner" /> : playing ? '⏸' : '▶'}
-            </button>
-
-            <div className={'player__wave' + (playing ? ' is-playing' : '')} aria-hidden="true">
-              {Array.from({ length: 40 }).map((_, i) => (
-                <span key={i} style={{ animationDelay: ((i * 37) % 900) + 'ms' }} />
-              ))}
+        <div className="player__top">
+          <img src={station.logoUrl} alt="" className="player__cover" />
+          <div className="player__meta">
+            <div className="player__status-line">
+              <span className={'badge-state' + (isLive ? ' badge-state--live' : ' badge-state--off')}>
+                {isLive ? '🔴 TRANSMISIÓN EN DIRECTO' : '⏳ PROGRAMACIÓN HABITUAL'}
+              </span>
             </div>
 
-            <VolumeControl />
+            <p className="player__now" aria-live="polite">
+              <strong>{showTitle}</strong> <span>· {showHosts}</span>
+            </p>
 
-            <button className="player__share" onClick={share}>
-              {shared ? '✓ ¡Enlace copiado!' : 'Compartir'}
-            </button>
+            {!isLive && (
+              <p className="player__scheduled-notice">
+                La señal en vivo se activa cuando el locutor inicia transmisión. ¡Conéctate en los horarios de programación!
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="player__controls">
+          <button
+            className={'player__play' + (!isLive ? ' player__play--off' : '')}
+            onClick={toggle}
+            aria-label={reconnecting ? 'Cancelar reconexión' : playing ? 'Pausar' : 'Reproducir'}
+            disabled={loading}
+            title={!isLive ? 'Emisora fuera del aire' : reconnecting ? 'Reconectando… (pulsa para cancelar)' : (playing ? 'Pausar emisión' : 'Escuchar en vivo')}
+          >
+            {loading || reconnecting ? <span className="spinner" /> : playing ? '⏸' : '▶'}
+          </button>
+
+          <div className={'player__wave' + (playing ? ' is-playing' : '')} aria-hidden="true">
+            {Array.from({ length: 28 }).map((_, i) => (
+              <span key={i} style={{ animationDelay: ((i * 37) % 900) + 'ms' }} />
+            ))}
           </div>
 
-          {error && <p className="player__error" role="alert">{error}</p>}
+          <VolumeControl />
+
+          <button className="player__share" onClick={share}>
+            {shared ? '✓ ¡Copiado!' : 'Compartir'}
+          </button>
         </div>
+
+        {reconnecting && <p className="player__reconnecting" role="status">Se cortó la señal. Reconectando…</p>}
+        {error && <p className="player__error" role="alert">{error}</p>}
       </div>
     </section>
   )
