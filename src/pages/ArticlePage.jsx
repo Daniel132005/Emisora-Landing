@@ -38,7 +38,7 @@ export default function ArticlePage() {
   if (article === false) {
     return (
       <main className="container page">
-        <h1 className="section-title page__title">Noticia no encontrada</h1>
+        <h1 className="section-title page__title">Noticia No Encontrada</h1>
         <p className="section-sub">Puede que se haya retirado o que el enlace esté incompleto.</p>
         <Link to="/noticias" className="btn btn--primary page__more">Ver todas las noticias</Link>
       </main>
@@ -59,7 +59,7 @@ export default function ArticlePage() {
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch {}
+    } catch { }
   }
 
   return (
