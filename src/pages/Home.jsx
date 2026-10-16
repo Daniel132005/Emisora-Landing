@@ -7,6 +7,7 @@ import Podcasts from '../components/Podcasts.jsx'
 import Voices from '../components/Voices.jsx'
 import Advertise from '../components/Advertise.jsx'
 import NewsSection from '../components/NewsSection.jsx'
+import GallerySection from '../components/GallerySection.jsx'
 import NavLink from '../components/NavLink.jsx'
 import { useStation } from '../context/StationContext.jsx'
 
@@ -40,6 +41,8 @@ export default function Home() {
       </div>
 
       <Voices />
+
+      <GallerySection />
 
       <div className="container">
         <Advertise />

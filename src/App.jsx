@@ -7,6 +7,7 @@ import ScrollManager from './components/ScrollManager.jsx'
 import Home from './pages/Home.jsx'
 import NewsPage from './pages/NewsPage.jsx'
 import ArticlePage from './pages/ArticlePage.jsx'
+import GalleryPage from './pages/GalleryPage.jsx'
 import { RadioProvider } from './context/RadioContext.jsx'
 import { StationProvider } from './context/StationContext.jsx'
 import { ScheduleProvider } from './context/ScheduleContext.jsx'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/noticias" element={<NewsPage />} />
         <Route path="/noticias/:slug" element={<ArticlePage />} />
+        <Route path="/galeria" element={<GalleryPage />} />
         <Route path="*" element={<Home />} />
       </Routes>
       <Footer />

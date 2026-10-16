@@ -6,7 +6,8 @@ import { useLocation } from 'react-router-dom'
  * Reintenta un momento porque algunas secciones aparecen cuando llegan los datos del servidor.
  */
 export default function ScrollManager() {
-  const { pathname, hash } = useLocation()
+  // key cambia en cada navegación: volver a pulsar el mismo apartado vuelve a llevar a él
+  const { pathname, hash, key } = useLocation()
 
   useEffect(() => {
     if (!hash) {
@@ -16,13 +17,14 @@ export default function ScrollManager() {
     let tries = 0
     const timer = setInterval(() => {
       const el = document.getElementById(decodeURIComponent(hash.slice(1)))
-      if (el || ++tries > 20) {
+      // Hasta 3 s: noticias y galería aparecen cuando llegan los datos del servidor
+      if (el || ++tries > 60) {
         clearInterval(timer)
         el?.scrollIntoView()
       }
     }, 50)
     return () => clearInterval(timer)
-  }, [pathname, hash])
+  }, [pathname, hash, key])
 
   return null
 }

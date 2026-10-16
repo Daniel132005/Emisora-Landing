@@ -112,6 +112,8 @@ export function RadioProvider({ children }) {
               } else if (data.type === 'station') {
                 // El panel guardó cambios de identidad: StationContext los aplica al momento
                 window.dispatchEvent(new CustomEvent('zumaque:station', { detail: data.station }))
+              } else if (data.type === 'gallery') {
+                window.dispatchEvent(new Event('zumaque:gallery'))
               } else if (data.type === 'news') {
                 // Se publicó, editó o retiró una noticia
                 window.dispatchEvent(new Event('zumaque:news'))
