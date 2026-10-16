@@ -1,5 +1,6 @@
-import { voices } from '../data/station.js'
-import { useCurrentShow } from '../hooks/useCurrentShow.js'
+import { mediaUrl } from '../api/config.js'
+import { useSchedule } from '../context/ScheduleContext.jsx'
+import { programWhen, useCurrentShow } from '../hooks/useCurrentShow.js'
 
 function initials(name) {
   if (name.startsWith('DJ ')) return 'DJ'
@@ -11,7 +12,9 @@ function initials(name) {
 }
 
 export default function Voices() {
+  const { programs, hosts } = useSchedule()
   const current = useCurrentShow()
+  if (!hosts.length) return null
 
   return (
     <section id="voces" className="voices">
@@ -19,19 +22,22 @@ export default function Voices() {
         <h2 className="section-title">Voces de la radio</h2>
         <p className="section-sub">Las personas que te acompañan cada día al aire.</p>
         <ul className="voices__list">
-          {voices.map((v) => {
-            const live = current?.show === v.show
+          {hosts.map((h) => {
+            const own = programs.filter((p) => p.hostIds.includes(h.id))
+            const live = current?.hostIds.includes(h.id)
+            // Foto subida desde el panel, o la de ejemplo incluida en la web
+            const photo = mediaUrl(h.photo) || h.staticPhoto
             return (
-              <li key={v.name} className={`voice ${live ? 'is-live' : ''}`}>
+              <li key={h.id} className={`voice ${live ? 'is-live' : ''}`}>
                 <div className="voice__avatar">
-                  {v.photo ? <img src={v.photo} alt={v.name} loading="lazy" /> : <span>{initials(v.name)}</span>}
+                  {photo ? <img src={photo} alt={h.name} loading="lazy" /> : <span>{initials(h.name)}</span>}
                 </div>
                 {live && <span className="badge voice__badge">Al aire</span>}
-                <strong>{v.name}</strong>
-                <span className="voice__show">{v.show}</span>
-                <span className="voice__time">{v.time}</span>
-                {v.instagram && (
-                  <a href={v.instagram} target="_blank" rel="noopener" className="voice__social">
+                <strong>{h.name}</strong>
+                {own[0] && <span className="voice__show">{own.map((p) => p.name).join(' · ')}</span>}
+                {own[0] && <span className="voice__time">{programWhen(own[0])}</span>}
+                {h.instagram && (
+                  <a href={h.instagram} target="_blank" rel="noopener" className="voice__social">
                     Instagram
                   </a>
                 )}

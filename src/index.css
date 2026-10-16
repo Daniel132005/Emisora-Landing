@@ -250,6 +250,13 @@ a { color: inherit; }
 .ad--sidebar .ad__placeholder span { font-size: 1.05rem; font-weight: 600; }
 
 /* ---------- Programación ---------- */
+.schedule__days { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 16px; }
+.schedule__day {
+  padding: 6px 14px; border-radius: 999px; border: 1.5px solid #e2dbe9; background: #fff;
+  font: inherit; font-weight: 600; font-size: .85rem; color: var(--muted); cursor: pointer;
+}
+.schedule__day:hover { border-color: var(--purple); color: var(--purple); }
+.schedule__day.is-active { background: var(--purple); border-color: var(--purple); color: #fff; }
 .schedule__list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .schedule__list li {
   display: flex; align-items: center; gap: 14px; background: var(--card);

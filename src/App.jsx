@@ -11,10 +11,12 @@ import MiniPlayer from './components/MiniPlayer.jsx'
 import AnnouncementBar from './components/AnnouncementBar.jsx'
 import { RadioProvider } from './context/RadioContext.jsx'
 import { StationProvider } from './context/StationContext.jsx'
+import { ScheduleProvider } from './context/ScheduleContext.jsx'
 
 export default function App() {
   return (
     <StationProvider>
+    <ScheduleProvider>
     <RadioProvider>
       <AnnouncementBar />
       <Header />
@@ -46,6 +48,7 @@ export default function App() {
       <Footer />
       <MiniPlayer />
     </RadioProvider>
+    </ScheduleProvider>
     </StationProvider>
   )
 }
