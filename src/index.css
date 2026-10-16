@@ -329,9 +329,21 @@ a { color: inherit; }
 .footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: .9rem; }
 .footer a { text-decoration: none; }
 .footer a:hover { color: var(--orange); }
-.footer__social { display: flex; gap: 10px; }
-.footer__social a { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--orange); color: #fff; font-weight: 700; }
-.footer__social a:hover { background: var(--purple); color: #fff; }
+.footer__copy-btn {
+  margin-left: 8px; padding: 2px 10px; border-radius: 999px; border: 1px solid #4a4253;
+  background: transparent; color: #cfc8d8; font: inherit; font-size: .75rem; cursor: pointer;
+}
+.footer__copy-btn:hover { border-color: var(--orange); color: #fff; }
+.footer__social { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Cada red con su color oficial (--brand); TikTok y X son negras: fondo blanco para que se vean */
+.social {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--brand); color: #fff; transition: transform .15s, box-shadow .15s;
+}
+.social:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+.social:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+/* Fondo blanco: TikTok y X (logos negros) e Instagram (glifo con su degradado oficial) */
+.social--tiktok, .social--x, .social--instagram { background: #fff; color: #000; }
 .footer__logo { width: 120px; background: #fff; border-radius: 12px; padding: 8px; }
 .footer__copy { text-align: center; font-size: .8rem; color: #8d8696; border-top: 1px solid #2c2633; margin: 36px 0 0; padding: 16px; }
 
@@ -611,4 +623,17 @@ a { color: inherit; }
 .podcast.is-active {
   border: 1px solid rgba(255, 71, 87, 0.6);
   box-shadow: 0 10px 30px rgba(255, 71, 87, 0.15);
+}
+
+/* ---------- Aviso editable desde el panel ---------- */
+.announce { background: linear-gradient(90deg, var(--orange), var(--orange-red)); color: #fff; }
+.announce__inner {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 40px; padding-block: 8px; text-align: center; font-weight: 600; font-size: .95rem;
+}
+.announce a { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.announce a:hover { text-decoration-thickness: 2px; }
+.announce__icon { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .announce__inner { font-size: .85rem; }
 }

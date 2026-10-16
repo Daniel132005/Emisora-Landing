@@ -8,11 +8,15 @@ import Voices from './components/Voices.jsx'
 import Advertise from './components/Advertise.jsx'
 import Footer from './components/Footer.jsx'
 import MiniPlayer from './components/MiniPlayer.jsx'
+import AnnouncementBar from './components/AnnouncementBar.jsx'
 import { RadioProvider } from './context/RadioContext.jsx'
+import { StationProvider } from './context/StationContext.jsx'
 
 export default function App() {
   return (
+    <StationProvider>
     <RadioProvider>
+      <AnnouncementBar />
       <Header />
       <main>
         <Hero />
@@ -42,5 +46,6 @@ export default function App() {
       <Footer />
       <MiniPlayer />
     </RadioProvider>
+    </StationProvider>
   )
 }

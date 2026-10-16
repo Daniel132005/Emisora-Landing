@@ -1,6 +1,6 @@
-﻿import { useState } from 'react'
-import logo from '../assets/logo.png'
-import { station, defaultShow } from '../data/station.js'
+import { useState } from 'react'
+import { defaultShow } from '../data/station.js'
+import { useStation } from '../context/StationContext.jsx'
 import { useCurrentShow } from '../hooks/useCurrentShow.js'
 import { useRadio } from '../context/RadioContext.jsx'
 import VolumeControl from './VolumeControl.jsx'
@@ -9,6 +9,7 @@ export default function LivePlayer() {
   const scheduled = useCurrentShow() ?? defaultShow
   const { playing, loading, error, isLive, liveInfo, listeners, streamSource, toggle } = useRadio()
   const [shared, setShared] = useState(false)
+  const station = useStation()
 
   const showTitle = (isLive && liveInfo.program) ? liveInfo.program : scheduled.show
   const showHosts = (isLive && liveInfo.host) ? 'Con ' + liveInfo.host : scheduled.hosts
@@ -41,7 +42,7 @@ export default function LivePlayer() {
       </div>
 
       <div className={'player' + (!isLive ? ' player--off-air' : '')}>
-        <img src={logo} alt="" className="player__cover" />
+        <img src={station.logoUrl} alt="" className="player__cover" />
         <div className="player__body">
           <div className="player__status-line">
             <span className={'badge-state' + (isLive ? ' badge-state--live' : ' badge-state--off')}>

@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import logo from '../assets/logo.png'
 import { nav } from '../data/station.js'
+import { useStation } from '../context/StationContext.jsx'
 
 export default function Header() {
   const [open, setOpen] = useState(false)
+  const station = useStation()
 
   return (
     <header className="header">
       <div className="container header__inner">
-        <a href="#inicio" className="header__logo" aria-label="Zumaque 90.5 FM — inicio">
-          <img src={logo} alt="Zumaque 90.5 FM" />
+        <a href="#inicio" className="header__logo" aria-label={`${station.name} — inicio`}>
+          <img src={station.logoUrl} alt={station.name} />
         </a>
 
         <button

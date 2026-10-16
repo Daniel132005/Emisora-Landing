@@ -1,4 +1,4 @@
-import { station } from '../data/station.js'
+import { useStation } from '../context/StationContext.jsx'
 
 const perks = [
   { title: 'Cuñas al aire', text: 'Tu mensaje en nuestra programación de mayor sintonía.' },
@@ -8,7 +8,8 @@ const perks = [
 ]
 
 export default function Advertise() {
-  const waText = encodeURIComponent('Hola, quiero información para anunciar en Zumaque 90.5 FM')
+  const station = useStation()
+  const waText = encodeURIComponent(`Hola, quiero información para anunciar en ${station.name}`)
   return (
     <section id="publicidad" className="advertise">
       <div className="advertise__intro">

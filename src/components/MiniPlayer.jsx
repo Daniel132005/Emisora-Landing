@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import logo from '../assets/logo.png'
 import { defaultShow } from '../data/station.js'
+import { useStation } from '../context/StationContext.jsx'
 import { useCurrentShow } from '../hooks/useCurrentShow.js'
 import { useRadio } from '../context/RadioContext.jsx'
 import VolumeControl from './VolumeControl.jsx'
@@ -8,6 +8,7 @@ import VolumeControl from './VolumeControl.jsx'
 /** Barra fija abajo que aparece cuando el reproductor principal sale de pantalla hacia arriba. */
 export default function MiniPlayer() {
   const { playing, loading, isLive, liveInfo, toggle } = useRadio()
+  const station = useStation()
   const scheduled = useCurrentShow() ?? defaultShow
   const [visible, setVisible] = useState(false)
 
@@ -36,7 +37,7 @@ export default function MiniPlayer() {
       >
         {loading ? <span className="spinner" /> : playing ? '⏸' : '▶'}
       </button>
-      <img src={logo} alt="" className="mini__cover" />
+      <img src={station.logoUrl} alt="" className="mini__cover" />
       <a href="#en-vivo" className="mini__info">
         <span className={'mini__live' + (isLive ? ' mini__live--active' : ' mini__live--off')}>
           <span className={'live__dot' + (isLive ? ' live__dot--active' : ' live__dot--off')} />

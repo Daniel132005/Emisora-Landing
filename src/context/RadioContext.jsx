@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { API_URL, ICECAST_URL, WS_URL } from '../api/config.js'
 
 const RadioContext = createContext(null)
 const VOLUME_KEY = 'zumaque:volume'
@@ -12,9 +13,6 @@ function savedVolume() {
   }
 }
 
-const WS_URL = import.meta.env.VITE_RADIO_WS_URL || 'ws://localhost:4000/listen'
-const ICECAST_URL = import.meta.env.VITE_ICECAST_URL || 'http://localhost:8000/live.mp3'
-const API_URL = import.meta.env.VITE_API_URL || WS_URL.replace(/^ws/, 'http').replace(/\/listen$/, '')
 const FALLBACK_STREAM = `${API_URL}/stream`
 
 export function RadioProvider({ children }) {
@@ -111,6 +109,9 @@ export function RadioProvider({ children }) {
                   setLoading(false)
                   setError('La emisión en vivo ha finalizado.')
                 }
+              } else if (data.type === 'station') {
+                // El panel guardó cambios de identidad: StationContext los aplica al momento
+                window.dispatchEvent(new CustomEvent('zumaque:station', { detail: data.station }))
               }
             } catch {}
           }
