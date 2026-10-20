@@ -1,3 +1,4 @@
+@import './features.css';
 :root {
   --purple: #520a80;
   --purple-dark: #2e0548;
@@ -47,6 +48,30 @@ html {
   scroll-padding-top: 86px;
   overflow-x: hidden;
   max-width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) var(--bg);
+}
+
+/* Barra de scroll global estilizada con la identidad del sistema */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--purple);
 }
 body {
   margin: 0;
@@ -928,3 +953,4 @@ a { color: inherit; }
   .lightbox__count { bottom: 22px; font-size: 0.8rem; }
   .lightbox__close { top: 10px; right: 10px; width: 38px; height: 38px; }
 }
+

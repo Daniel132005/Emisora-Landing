@@ -4,14 +4,15 @@ import { useStation } from './StationContext.jsx'
 
 const RadioContext = createContext(null)
 const VOLUME_KEY = 'zumaque:volume'
-const FALLBACK_STREAM = `${API_URL}/stream`
+const DEVICE_TOKEN_KEY = 'zumaque:device_token'
+const POLL_VOTES_KEY = 'zumaque:poll_votes'
+const SONG_VOTES_KEY = 'zumaque:song_votes'
+// Señal Matriz: el servidor backend sirve el audio en vivo y música en off continuo 24/7
+const MAIN_STREAM = `${API_URL}/stream`
 
-// Reintentos de audio tras un corte: 2 s, 4 s, 8 s… hasta 15 s entre intentos, durante 2 minutos como máximo
 const RETRY_BASE_MS = 2000
 const RETRY_MAX_MS = 15000
 const RETRY_GIVE_UP_MS = 120000
-// Si el audio no avanza durante este tiempo, se considera cortado
-const STALL_TIMEOUT_MS = 4000
 
 function savedVolume() {
   try {
@@ -22,108 +23,148 @@ function savedVolume() {
   }
 }
 
-// Avisos del servidor que interesan a otras partes de la web (identidad, parrilla, noticias, galería)
-function forwardEvent(data) {
-  if (data.type === 'station') window.dispatchEvent(new CustomEvent('zumaque:station', { detail: data.station }))
-  else if (data.type === 'schedule') window.dispatchEvent(new Event('zumaque:schedule'))
-  else if (data.type === 'news') window.dispatchEvent(new Event('zumaque:news'))
-  else if (data.type === 'gallery') window.dispatchEvent(new Event('zumaque:gallery'))
+function getOrCreateDeviceToken() {
+  try {
+    let token = localStorage.getItem(DEVICE_TOKEN_KEY)
+    if (!token) {
+      token = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36)
+      localStorage.setItem(DEVICE_TOKEN_KEY, token)
+    }
+    return token
+  } catch {
+    return 'anon_' + Date.now()
+  }
+}
+
+function loadStoredVotes(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
 }
 
 export function RadioProvider({ children }) {
   const station = useStation()
-  const audioRef = useRef(null)
 
+  // Estado del reproductor
   const [playing, setPlaying] = useState(false)
   const [loading, setLoading] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const [error, setError] = useState('')
   const [volume, setVolumeState] = useState(savedVolume)
   const [muted, setMuted] = useState(false)
-  const [streamSource, setStreamSource] = useState(null) // 'icecast' | 'direct'
+  const [streamSource, setStreamSource] = useState(null)
 
-  // Estado de la emisión (WebSocket, con consulta HTTP de respaldo)
+  // Estado de emisión en vivo y oyentes
   const [isLive, setIsLive] = useState(false)
-  const [liveInfo, setLiveInfo] = useState({ program: null, host: null })
+  const [liveInfo, setLiveInfo] = useState({ program: '', host: '', startedAt: null })
   const [listeners, setListeners] = useState(0)
 
-  // Lo que el oyente quiere: si pulsó play, se reintenta hasta que vuelva la señal o pulse stop
-  const wantPlay = useRef(false)
-  const retry = useRef({ timer: null, attempt: 0, since: 0 })
-  const isLiveRef = useRef(false)
-  // true mientras el propio reproductor cambia de fuente (sus pausas internas no son un stop del oyente)
-  const switching = useRef(false)
+  // Canales temáticos alternativos
+  const [channels, setChannels] = useState([])
+  const [currentChannel, setCurrentChannel] = useState(null) // null = Señal Matriz
 
-  // --- Volumen ---
+  // Canción que suena (Now Playing) y votaciones
+  const [nowPlaying, setNowPlaying] = useState({ track: null, history: [] })
+  const [songVotes, setSongVotes] = useState(() => loadStoredVotes(SONG_VOTES_KEY))
+
+  // Encuesta en vivo y votos
+  const [activePoll, setActivePoll] = useState(null)
+  const [pollVotes, setPollVotes] = useState(() => loadStoredVotes(POLL_VOTES_KEY))
+
+  // Radio Visual
+  const [visualRadio, setVisualRadio] = useState({ enabled: false, platform: 'youtube', stream_url: '' })
+
+  const audioRef = useRef(null)
+  const deviceToken = useRef(getOrCreateDeviceToken())
+  const wantPlay = useRef(false)
+  const switching = useRef(false)
+  const retry = useRef({ timer: null, attempt: 0, since: 0 })
+  const unmounted = useRef(false)
+  const wsRef = useRef(null)
+
+  // Sincronizar volumen
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume
-    try { localStorage.setItem(VOLUME_KEY, String(volume)) } catch { /* sin storage */ }
+    if (audioRef.current) {
+      audioRef.current.volume = muted ? 0 : volume
+    }
   }, [volume, muted])
 
   const setVolume = useCallback((v) => {
-    setVolumeState(v)
-    setMuted(v === 0)
+    const clamped = Math.min(1, Math.max(0, v))
+    setVolumeState(clamped)
+    if (clamped > 0) setMuted(false)
+    try { localStorage.setItem(VOLUME_KEY, String(clamped)) } catch {}
   }, [])
 
   const toggleMute = useCallback(() => {
-    if (muted || volume === 0) {
-      if (volume === 0) setVolumeState(0.5)
-      setMuted(false)
-    } else {
-      setMuted(true)
+    setMuted((m) => !m)
+  }, [])
+
+  const clearTimers = useCallback(() => {
+    if (retry.current.timer) {
+      clearTimeout(retry.current.timer)
+      retry.current.timer = null
     }
-  }, [muted, volume])
+  }, [])
 
-  // --- Reproducción ---
-
-  const clearTimers = () => {
-    clearTimeout(retry.current.timer)
-    retry.current.timer = null
-  }
-
-  const resetAudio = () => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.pause()
-    audio.removeAttribute('src')
-    audio.load()
-  }
-
-  /** Para del todo (el oyente pulsó stop o terminó la emisión). */
   const stopPlayback = useCallback(() => {
-    wantPlay.current = false
     clearTimers()
-    resetAudio()
+    wantPlay.current = false
+    retry.current = { timer: null, attempt: 0, since: 0 }
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause()
+      } catch {}
+    }
     setPlaying(false)
     setLoading(false)
     setReconnecting(false)
     setStreamSource(null)
-  }, [])
+  }, [clearTimers])
 
-  /** Conecta con el audio: primero Icecast (MP3) y, si falla, el stream directo del servidor. */
-  const connectAudio = useCallback(async () => {
+  /** Conectar señal de audio (Matriz o Canal Alternativo) */
+  const connectAudio = useCallback(async (targetChannel = currentChannel) => {
     const audio = audioRef.current
     if (!audio) return false
     switching.current = true
     try {
-      for (const [source, url] of [['icecast', ICECAST_URL], ['direct', FALLBACK_STREAM]]) {
-        if (!wantPlay.current) return false
-        try {
-          audio.src = `${url}?t=${Date.now()}`
-          await audio.play()
-          setStreamSource(source)
-          return true
-        } catch (err) {
-          console.warn(`[Radio] No se pudo conectar con ${source}`, err)
-        }
+      let targetSrc = ''
+      let sourceName = ''
+
+      const isAlt = targetChannel && targetChannel.slug !== 'matriz' && targetChannel.id !== 1 && targetChannel.id !== 'main'
+      if (isAlt && targetChannel.slug) {
+        targetSrc = `${API_URL}/api/public/channels/${targetChannel.slug}/stream`
+        sourceName = 'channel'
+      } else {
+        targetSrc = MAIN_STREAM
+        sourceName = isLive ? 'live' : 'ambient'
       }
-      return false
+
+      if (!wantPlay.current) return false
+
+      if (audio.src !== targetSrc) {
+        audio.src = targetSrc
+      }
+
+      try {
+        await audio.play()
+        setStreamSource(sourceName)
+        setError('')
+        return true
+      } catch (err) {
+        if (!wantPlay.current) return false
+        console.warn('[Radio] Error al reproducir audio:', err)
+        return false
+      }
     } finally {
       switching.current = false
     }
-  }, [])
+  }, [currentChannel, isLive])
 
-  /** Tras un corte: reintenta con espera creciente mientras la emisión siga y el oyente no haya parado. */
+  /** Reintentos tras cortes */
   const scheduleReconnect = useCallback(() => {
     if (!wantPlay.current || retry.current.timer) return
     if (!retry.current.since) retry.current.since = Date.now()
@@ -134,12 +175,13 @@ export function RadioProvider({ children }) {
     }
     setReconnecting(true)
     setPlaying(false)
-    const delay = Math.min(RETRY_BASE_MS * 2 ** retry.current.attempt, RETRY_MAX_MS)
-    retry.current.attempt++
+
+    const delay = Math.min(RETRY_BASE_MS * Math.pow(1.6, retry.current.attempt), RETRY_MAX_MS)
+    retry.current.attempt += 1
+
     retry.current.timer = setTimeout(async () => {
       retry.current.timer = null
-      // Sin emisión no se insiste en el audio: se espera a que el estado diga que vuelve a estar al aire
-      if (!isLiveRef.current) return scheduleReconnect()
+      if (!wantPlay.current) return
       if (await connectAudio()) {
         retry.current = { timer: null, attempt: 0, since: 0 }
         setReconnecting(false)
@@ -151,29 +193,20 @@ export function RadioProvider({ children }) {
     }, delay)
   }, [connectAudio, stopPlayback])
 
-  /** Señal de que la conexión volvió (red o WebSocket): reintentar ya, sin esperar a la siguiente ronda. */
-  const retryNow = useCallback(() => {
-    if (!wantPlay.current || !retry.current.timer) return
-    clearTimeout(retry.current.timer)
-    retry.current.timer = null
-    retry.current.attempt = 0
-    scheduleReconnect()
-  }, [scheduleReconnect])
-
-  const toggle = useCallback(async () => {
+  const onPlaying = useCallback(() => {
+    retry.current = { timer: null, attempt: 0, since: 0 }
+    setLoading(false)
+    setReconnecting(false)
+    setPlaying(true)
     setError('')
-    if (wantPlay.current) {
-      stopPlayback()
-      return
-    }
-    if (!isLiveRef.current) {
-      setError('El locutor no está al aire en este momento. Sintoniza durante los horarios de programación.')
-      return
-    }
+  }, [])
+
+  const play = useCallback(async (chanToPlay = currentChannel) => {
+    setError('')
     wantPlay.current = true
     retry.current = { timer: null, attempt: 0, since: 0 }
     setLoading(true)
-    const ok = await connectAudio()
+    const ok = await connectAudio(chanToPlay)
     setLoading(false)
     if (ok) {
       setPlaying(true)
@@ -181,146 +214,318 @@ export function RadioProvider({ children }) {
       stopPlayback()
       setError('No se pudo conectar con la señal de audio. Intenta nuevamente.')
     }
-  }, [connectAudio, stopPlayback])
+  }, [connectAudio, stopPlayback, currentChannel])
 
-  // Eventos del <audio>: un corte con el oyente escuchando activa la reconexión
+  /** Cambio de canal alternativo */
+  const switchChannel = useCallback(async (chan) => {
+    setError('')
+    const isSame = (chan === null && currentChannel === null) || (chan?.id === currentChannel?.id)
+    if (isSame) return
+
+    setCurrentChannel(chan)
+
+    // Cargar inmediatamente los metadatos de la canción de este canal
+    try {
+      const npEndpoint = chan && chan.slug !== 'matriz'
+        ? `${API_URL}/api/public/channels/${chan.slug}/now-playing`
+        : `${API_URL}/api/public/now-playing`
+      fetch(npEndpoint)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return
+          const track = data.track || (data.id || data.title ? data : null)
+          setNowPlaying({ track, history: data.history || [] })
+        })
+        .catch(() => {})
+    } catch {}
+
+    if (wantPlay.current) {
+      setLoading(true)
+      const ok = await connectAudio(chan)
+      setLoading(false)
+      if (ok) setPlaying(true)
+    }
+  }, [currentChannel, connectAudio])
+
   const onAudioProblem = useCallback(() => {
-    if (wantPlay.current && !loading) scheduleReconnect()
+    if (wantPlay.current && !loading && !switching.current) scheduleReconnect()
   }, [loading, scheduleReconnect])
 
-  // Vigilante: los navegadores tardan en avisar de un corte; si el audio no avanza, se da por cortado
+  const toggle = useCallback(async () => {
+    if (playing) {
+      stopPlayback()
+    } else {
+      await play()
+    }
+  }, [playing, stopPlayback, play])
+
+  const currentChannelRef = useRef(currentChannel)
   useEffect(() => {
-    if (!playing) return
-    let last = audioRef.current?.currentTime ?? 0
-    let stuckSince = Date.now()
-    const watch = setInterval(() => {
-      const now = audioRef.current?.currentTime ?? 0
-      if (now !== last) {
-        last = now
-        stuckSince = Date.now()
-      } else if (Date.now() - stuckSince > STALL_TIMEOUT_MS) {
-        clearInterval(watch)
-        onAudioProblem()
+    currentChannelRef.current = currentChannel
+  }, [currentChannel])
+
+  // Cargar canales, Now Playing y Encuesta iniciales
+  useEffect(() => {
+    unmounted.current = false
+
+    const fetchInitialData = async () => {
+      try {
+        const [chRes, npRes, pollRes, vrRes] = await Promise.allSettled([
+          fetch(`${API_URL}/api/public/channels`),
+          fetch(`${API_URL}/api/public/now-playing`),
+          fetch(`${API_URL}/api/public/polls/active`),
+          fetch(`${API_URL}/api/public/visual-radio`),
+        ])
+
+        if (chRes.status === 'fulfilled' && chRes.value.ok) {
+          const chData = await chRes.value.json()
+          setChannels(chData)
+        }
+        if (npRes.status === 'fulfilled' && npRes.value.ok) {
+          const npData = await npRes.value.json()
+          const track = npData?.track || (npData?.id || npData?.title ? npData : null)
+          setNowPlaying({
+            track,
+            history: npData?.history || [],
+          })
+          // Sanear votos locales huérfanos si la pista en el servidor tiene 0 votos
+          if (track && track.likes === 0 && track.fire === 0) {
+            setSongVotes((prev) => {
+              if (prev && prev[track.id]) {
+                const next = { ...prev }
+                delete next[track.id]
+                try { localStorage.setItem(SONG_VOTES_KEY, JSON.stringify(next)) } catch {}
+                return next
+              }
+              return prev
+            })
+          }
+        }
+        if (pollRes.status === 'fulfilled' && pollRes.value.ok) {
+          const pData = await pollRes.value.json()
+          setActivePoll(pData)
+        }
+        if (vrRes.status === 'fulfilled' && vrRes.value.ok) {
+          const vrData = await vrRes.value.json()
+          setVisualRadio({
+            ...vrData,
+            active: Boolean(vrData.active ?? vrData.enabled),
+            enabled: Boolean(vrData.active ?? vrData.enabled),
+            stream_url: vrData.embedUrl || vrData.stream_url || vrData.streamId || '',
+          })
+        }
+      } catch (e) {
+        console.warn('[RadioContext] Error cargando datos iniciales:', e)
       }
-    }, 1000)
-    return () => clearInterval(watch)
-  }, [playing, onAudioProblem])
+    }
 
-  // El navegador avisa de que vuelve a haber red
-  useEffect(() => {
-    window.addEventListener('online', retryNow)
-    return () => window.removeEventListener('online', retryNow)
-  }, [retryNow])
+    fetchInitialData()
 
-  const onPlaying = useCallback(() => {
-    if (wantPlay.current) {
-      setPlaying(true)
-      setReconnecting(false)
+    // Polling periódico para Now Playing sincronizado (cada 8s según el canal activo)
+    const npInterval = setInterval(async () => {
+      try {
+        const cur = currentChannelRef.current
+        const endpoint = cur && cur.slug !== 'matriz'
+          ? `${API_URL}/api/public/channels/${cur.slug}/now-playing`
+          : `${API_URL}/api/public/now-playing`
+        const res = await fetch(endpoint)
+        if (res.ok) {
+          const data = await res.json()
+          const track = data?.track || (data?.id || data?.title ? data : null)
+          setNowPlaying({
+            track,
+            history: data?.history || [],
+          })
+        }
+      } catch {}
+    }, 8000)
+
+    return () => {
+      unmounted.current = true
+      clearInterval(npInterval)
     }
   }, [])
 
-  // --- Estado de la emisión ---
-
-  const applyStatus = useCallback((data) => {
-    isLiveRef.current = Boolean(data.live)
-    setIsLive(Boolean(data.live))
-    setLiveInfo({ program: data.program, host: data.host })
-    if (typeof data.listeners === 'number') setListeners(data.listeners)
-    if (!data.live && wantPlay.current) {
-      // Terminó la emisión: no tiene sentido reintentar
-      stopPlayback()
-      setError('La emisión en vivo ha finalizado.')
-    } else if (data.live) {
-      // Llegó estado del servidor: hay conexión, así que si se estaba reconectando se intenta ya
-      retryNow()
-    }
-  }, [stopPlayback, retryNow])
-
-  // WebSocket permanente (se conecta una sola vez; si se cae, consulta por HTTP y reintenta)
+  // Conexión WebSocket para eventos en tiempo real
   useEffect(() => {
     let ws = null
-    let reconnectTimer = null
-    let pollTimer = null
-    let closed = false
+    let reconnectTimeout = null
 
-    const poll = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/status`)
-        if (res.ok) applyStatus(await res.json())
-      } catch { /* sin conexión: se reintentará */ }
-    }
-    const startPolling = () => {
-      if (!pollTimer) pollTimer = setInterval(poll, 8000)
-    }
-    const stopPolling = () => {
-      clearInterval(pollTimer)
-      pollTimer = null
-    }
-
-    const connect = () => {
-      if (closed) return
+    const connectWS = () => {
       try {
         ws = new WebSocket(WS_URL)
-      } catch {
-        startPolling()
-        reconnectTimer = setTimeout(connect, 3000)
-        return
-      }
-      ws.onopen = stopPolling
-      ws.onmessage = (event) => {
-        if (typeof event.data !== 'string') return // el servidor también envía audio binario: se ignora
-        try {
-          const data = JSON.parse(event.data)
-          if (data.type === 'status') applyStatus(data)
-          else forwardEvent(data)
-        } catch {}
-      }
-      ws.onclose = () => {
-        if (closed) return
-        startPolling()
-        reconnectTimer = setTimeout(connect, 3000)
-      }
-      ws.onerror = () => ws.close()
+        wsRef.current = ws
+
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data)
+            if (msg.type === 'status') {
+              const nowLive = Boolean(msg.live)
+              setIsLive(nowLive)
+              setLiveInfo({
+                program: msg.program || '',
+                host: msg.host || '',
+                startedAt: msg.startedAt || null,
+              })
+              setListeners(msg.listeners || 0)
+              if (nowLive) {
+                // Si la cabina sale al aire y no hay canción fijada por el locutor, limpiar pista de fondo
+                setNowPlaying((prev) => (prev.track?.fromStudio ? prev : { track: null, history: prev.history || [] }))
+              }
+            } else if (msg.type === 'now_playing') {
+              const track = msg.data?.track || (msg.data?.id || msg.data?.title ? msg.data : null)
+              setNowPlaying((prev) => ({
+                ...prev,
+                track,
+                history: msg.data?.history || prev.history || [],
+              }))
+            } else if (msg.type === 'track_rated' || msg.type === 'rating_update') {
+              const ratedId = msg.data?.id || msg.trackId
+              const likes = msg.data?.likes ?? msg.likes
+              const fire = msg.data?.fire ?? msg.fire
+              setNowPlaying((prev) => {
+                if (prev.track && (prev.track.id === ratedId || String(prev.track.id) === String(ratedId))) {
+                  return {
+                    ...prev,
+                    track: { ...prev.track, likes, fire },
+                  }
+                }
+                return prev
+              })
+            } else if (msg.type === 'poll_active') {
+              setActivePoll(msg.data)
+            } else if (msg.type === 'poll_voted') {
+              setActivePoll((prev) => (prev && prev.id === msg.data.id ? msg.data : prev))
+            } else if (msg.type === 'visual_radio') {
+              const v = msg.visual || msg.data || {}
+              setVisualRadio({
+                ...v,
+                active: Boolean(v.active ?? v.enabled),
+                enabled: Boolean(v.active ?? v.enabled),
+                stream_url: v.embedUrl || v.stream_url || v.streamId || '',
+              })
+            }
+          } catch {}
+        }
+
+        ws.onclose = () => {
+          if (!unmounted.current) {
+            reconnectTimeout = setTimeout(connectWS, 4000)
+          }
+        }
+      } catch {}
     }
 
-    connect()
-    poll()
+    connectWS()
 
     return () => {
-      closed = true
-      clearTimeout(reconnectTimer)
-      stopPolling()
-      ws?.close()
+      clearTimeout(reconnectTimeout)
+      if (ws) ws.close()
     }
-  }, [applyStatus])
+  }, [])
 
-  // --- Controles del sistema (pantalla de bloqueo, auriculares, Android Auto…) ---
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-    const title = liveInfo.program || station.name
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist: liveInfo.host ? `Con ${liveInfo.host}` : station.name,
-      album: station.name,
-      artwork: [{ src: new URL(station.logoUrl, window.location.href).href, sizes: '512x512' }],
+  // Votar por una canción con persistencia garantizada y sincronización en tiempo real
+  const rateCurrentTrack = useCallback(async (type) => {
+    if (!nowPlaying.track) return
+    const trackId = nowPlaying.track.id
+    if (songVotes[trackId]) return
+
+    const normalizedRating = type === 'likes' ? 'like' : type
+
+    // Registro optimista en UI
+    setSongVotes((prev) => {
+      const next = { ...prev, [trackId]: type }
+      try { localStorage.setItem(SONG_VOTES_KEY, JSON.stringify(next)) } catch {}
+      return next
     })
-    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
-  }, [liveInfo, station.name, station.logoUrl, playing])
 
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-    const play = () => { if (!wantPlay.current) toggle() }
-    const stop = () => { if (wantPlay.current) stopPlayback() }
-    navigator.mediaSession.setActionHandler('play', play)
-    navigator.mediaSession.setActionHandler('pause', stop)
-    navigator.mediaSession.setActionHandler('stop', stop)
-    return () => {
-      for (const action of ['play', 'pause', 'stop']) navigator.mediaSession.setActionHandler(action, null)
+    setNowPlaying((prev) => {
+      if (!prev.track || prev.track.id !== trackId) return prev
+      return {
+        ...prev,
+        track: {
+          ...prev.track,
+          [type]: (prev.track[type] || 0) + 1,
+        },
+      }
+    })
+
+    try {
+      const res = await fetch(`${API_URL}/api/public/now-playing/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trackId,
+          rating: normalizedRating,
+          type: normalizedRating,
+          deviceToken: deviceToken.current,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setNowPlaying((prev) => {
+          if (!prev.track || prev.track.id !== trackId) return prev
+          return {
+            ...prev,
+            track: {
+              ...prev.track,
+              likes: data.likes,
+              fire: data.fire,
+            },
+          }
+        })
+      } else if (res.status !== 409) {
+        // En caso de error del servidor, revertir el voto optimista
+        setSongVotes((prev) => {
+          const next = { ...prev }
+          delete next[trackId]
+          try { localStorage.setItem(SONG_VOTES_KEY, JSON.stringify(next)) } catch {}
+          return next
+        })
+        setNowPlaying((prev) => {
+          if (!prev.track || prev.track.id !== trackId) return prev
+          return {
+            ...prev,
+            track: {
+              ...prev.track,
+              [type]: Math.max(0, (prev.track[type] || 1) - 1),
+            },
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('[Radio] Error al registrar voto musical:', e)
     }
-  }, [toggle, stopPlayback])
+  }, [nowPlaying.track, songVotes])
 
-  // Al desmontar, sin temporizadores colgando
-  useEffect(() => clearTimers, [])
+  // Votar en la encuesta
+  const votePoll = useCallback(async (optionId) => {
+    if (!activePoll || pollVotes[activePoll.id]) return
+
+    setPollVotes((prev) => {
+      const next = { ...prev, [activePoll.id]: optionId }
+      try { localStorage.setItem(POLL_VOTES_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+
+    try {
+      const res = await fetch(`${API_URL}/api/public/polls/${activePoll.id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          optionId,
+          deviceToken: deviceToken.current,
+        }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setActivePoll(updated)
+      }
+    } catch (e) {
+      console.warn('[Radio] Error al votar en encuesta:', e)
+    }
+  }, [activePoll, pollVotes])
 
   const value = {
     playing,
@@ -329,12 +534,21 @@ export function RadioProvider({ children }) {
     error,
     volume,
     muted,
+    streamSource,
     isLive,
     liveInfo,
     listeners,
-    streamSource,
-    apiUrl: API_URL,
-    icecastUrl: ICECAST_URL,
+    channels,
+    currentChannel,
+    switchChannel,
+    nowPlaying,
+    songVotes,
+    rateCurrentTrack,
+    activePoll,
+    pollVotes,
+    votePoll,
+    visualRadio,
+    deviceToken: deviceToken.current,
     toggle,
     stopPlayback,
     setVolume,
@@ -351,8 +565,6 @@ export function RadioProvider({ children }) {
         onPlaying={onPlaying}
         onError={onAudioProblem}
         onEnded={onAudioProblem}
-        // Pausa desde fuera (p. ej. auriculares desconectados): se respeta como stop
-        onPause={() => { if (wantPlay.current && !switching.current && !retry.current.timer && !reconnecting) stopPlayback() }}
       />
     </RadioContext.Provider>
   )
