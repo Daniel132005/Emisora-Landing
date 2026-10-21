@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { defaultShow } from '../data/station.js'
 import { useStation } from '../context/StationContext.jsx'
 import { useCurrentShow } from '../hooks/useCurrentShow.js'
@@ -30,7 +30,9 @@ export default function LivePlayer() {
   const [showVideo, setShowVideo] = useState(false)
   const station = useStation()
 
-  const isVisualActive = Boolean(visualRadio?.active || visualRadio?.enabled)
+  // Oculto temporalmente (NO eliminado) para activar en el futuro al integrar Cabina TV / Video en vivo
+  const ENABLE_VISUAL_RADIO = false
+  const isVisualActive = ENABLE_VISUAL_RADIO && Boolean(visualRadio?.active || visualRadio?.enabled)
   const embedUrl = visualRadio?.embedUrl || (visualRadio?.stream_url && visualRadio.stream_url.includes('embed') ? visualRadio.stream_url : (visualRadio?.streamId?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/))([a-zA-Z0-9_-]{11})/) ? `https://www.youtube-nocookie.com/embed/${visualRadio.streamId.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/))([a-zA-Z0-9_-]{11})/)[1]}?autoplay=1` : visualRadio?.stream_url))
 
   const currentTrack = nowPlaying?.track || (nowPlaying?.id || nowPlaying?.title ? nowPlaying : null)
@@ -43,9 +45,13 @@ export default function LivePlayer() {
     ? currentChannel.name
     : (isLive && liveInfo.program ? liveInfo.program : scheduled.show)
 
+  const isGenericAdmin = (val) => !val || /administrador|admin/i.test(String(val).trim())
+
   const displaySubtitle = isAltChannel
     ? `${currentChannel.genre || 'Transmisión Web Alternativa'} • ${currentChannel.bitrate_kbps || 128} kbps`
-    : (isLive && liveInfo.host ? `Con ${liveInfo.host}` : scheduled.hosts)
+    : (isLive
+        ? (liveInfo.host && !isGenericAdmin(liveInfo.host) ? `Con ${liveInfo.host}` : '')
+        : (scheduled.hosts && !isGenericAdmin(scheduled.hosts) ? scheduled.hosts : ''))
 
   const trackCover = currentTrack?.coverUrl || currentTrack?.cover_url
   const coverUrl = trackCover
@@ -70,6 +76,20 @@ export default function LivePlayer() {
       }
     } catch {}
   }
+
+  // Sincronizar metadatos oficiales en la pantalla de bloqueo (iOS / Android / Control de medios)
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: displayTitle || 'Zumaque 90.5 FM',
+        artist: displaySubtitle || (isLive ? 'Transmisión en Directo' : (scheduled.show || 'Zumaque 90.5 FM')),
+        album: 'Zumaque 90.5 FM',
+        artwork: [
+          { src: coverUrl || station.logoUrl || '/logo.png', sizes: '512x512', type: 'image/png' },
+        ],
+      })
+    }
+  }, [displayTitle, displaySubtitle, coverUrl, station.logoUrl, isLive, scheduled.show])
 
   // Filtrar los canales temáticos para no duplicar la matriz
   const altChannels = (channels || []).filter(
