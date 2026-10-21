@@ -13,6 +13,7 @@ import GalleryPage from './pages/GalleryPage.jsx'
 import { RadioProvider } from './context/RadioContext.jsx'
 import { StationProvider } from './context/StationContext.jsx'
 import { ScheduleProvider } from './context/ScheduleContext.jsx'
+import { PwaProvider } from './context/PwaContext.jsx'
 
 /**
  * Los proveedores y el reproductor quedan fuera de las rutas: al cambiar de página
@@ -23,22 +24,24 @@ export default function App() {
     <StationProvider>
       <ScheduleProvider>
         <RadioProvider>
-          <ScrollManager />
-          <AnnouncementBar />
-          <Header />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/noticias" element={<NewsPage />} />
-            <Route path="/noticias/:slug" element={<ArticlePage />} />
-            <Route path="/galeria" element={<GalleryPage />} />
-            <Route path="*" element={<Home />} />
-          </Routes>
-          <Footer />
-          {/* Cabina Directa (Grabador de notas de voz web + WhatsApp) */}
-          <BoothWidget />
-          <MiniPlayer />
-          {/* Banner y modal de instalación PWA */}
-          <PwaInstallPrompt />
+          <PwaProvider>
+            <ScrollManager />
+            <AnnouncementBar />
+            <Header />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/noticias" element={<NewsPage />} />
+              <Route path="/noticias/:slug" element={<ArticlePage />} />
+              <Route path="/galeria" element={<GalleryPage />} />
+              <Route path="*" element={<Home />} />
+            </Routes>
+            <Footer />
+            {/* Cabina Directa (Grabador de notas de voz web + WhatsApp) */}
+            <BoothWidget />
+            <MiniPlayer />
+            {/* Banner y modal de instalación PWA */}
+            <PwaInstallPrompt />
+          </PwaProvider>
         </RadioProvider>
       </ScheduleProvider>
     </StationProvider>

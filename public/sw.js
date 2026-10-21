@@ -45,13 +45,16 @@ self.addEventListener('fetch', (event) => {
   // 1. Ignorar métodos no GET
   if (req.method !== 'GET') return
 
-  // 2. NUNCA interceptar audio streaming, web sockets o llamadas API dinámicas
+  // 2. NUNCA interceptar audio/video streaming, web sockets o llamadas API dinámicas
   if (
     url.pathname.includes('/stream') ||
     url.pathname.includes('/live') ||
     url.pathname.endsWith('.mp3') ||
     url.pathname.endsWith('.aac') ||
     url.pathname.endsWith('.ogg') ||
+    url.pathname.endsWith('.mp4') ||
+    url.pathname.endsWith('.mov') ||
+    url.pathname.endsWith('.webm') ||
     url.pathname.startsWith('/api/') ||
     url.port === '4000' ||
     url.port === '8000'

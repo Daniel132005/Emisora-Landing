@@ -1,101 +1,21 @@
-import { useEffect, useState } from 'react'
+import { usePwa } from '../context/PwaContext.jsx'
 
 export default function PwaInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
-  const [canInstall, setCanInstall] = useState(false)
-  const [isIos, setIsIos] = useState(false)
-  const [isStandalone, setIsStandalone] = useState(false)
-  const [showIosModal, setShowIosModal] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
-  const [installedSuccess, setInstalledSuccess] = useState(false)
+  const {
+    isInstalled,
+    isStandalone,
+    canInstall,
+    isIos,
+    showIosModal,
+    setShowIosModal,
+    isDismissed,
+    dismissBanner,
+    installedSuccess,
+    promptInstall,
+  } = usePwa()
 
-  useEffect(() => {
-    // 1. Detectar si ya está en modo app independiente (instalada)
-    const standaloneMode =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true ||
-      document.referrer.includes('android-app://')
-
-    setIsStandalone(Boolean(standaloneMode))
-
-    // 2. Detectar iOS (Safari no dispara beforeinstallprompt)
-    const ua = window.navigator.userAgent.toLowerCase()
-    const iosDevice = /iphone|ipad|ipod/.test(ua) && !standaloneMode
-    setIsIos(iosDevice)
-
-    // 3. Comprobar si el usuario ya descartó el aviso en esta sesión
-    try {
-      if (sessionStorage.getItem('zumaque:pwa_dismissed')) {
-        setDismissed(true)
-      }
-    } catch {}
-
-    // 4. Capturar evento de instalación estándar (Chrome, Edge, Samsung Internet, Opera)
-    const handleBeforeInstall = (e) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-      setCanInstall(true)
-    }
-
-    const handleAppInstalled = () => {
-      setCanInstall(false)
-      setDeferredPrompt(null)
-      setIsStandalone(true)
-      setInstalledSuccess(true)
-      setTimeout(() => setInstalledSuccess(false), 4000)
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
-    window.addEventListener('appinstalled', handleAppInstalled)
-
-    const handleCustomTrigger = () => {
-      setDismissed(false)
-      // Si es iOS abrir modal de instrucciones, o si hay prompt dispararlo
-      if (iosDevice) {
-        setShowIosModal(true)
-      } else {
-        setCanInstall(true)
-      }
-    }
-    window.addEventListener('pwa-open-install', handleCustomTrigger)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-      window.removeEventListener('pwa-open-install', handleCustomTrigger)
-    }
-  }, [])
-
-
-  const handleInstallClick = async () => {
-    if (isIos) {
-      setShowIosModal(true)
-      return
-    }
-
-    if (!deferredPrompt) return
-
-    try {
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') {
-        setCanInstall(false)
-        setDeferredPrompt(null)
-      }
-    } catch (e) {
-      console.warn('[PWA] Error en prompt:', e)
-    }
-  }
-
-  const handleDismiss = () => {
-    setDismissed(true)
-    try {
-      sessionStorage.setItem('zumaque:pwa_dismissed', 'true')
-    } catch {}
-  }
-
-  // Si ya está instalada o descartada y no hay evento ni es iOS, ocultar banner flotante
-  const showBanner = !isStandalone && !dismissed && (canInstall || isIos)
+  // Ocultar si ya está instalada, en modo app, descartada o si el dispositivo no la soporta
+  const showBanner = !isInstalled && !isStandalone && !isDismissed && (canInstall || isIos)
 
   return (
     <>
@@ -134,7 +54,7 @@ export default function PwaInstallPrompt() {
             <button
               type="button"
               className="pwa-install-btn"
-              onClick={handleInstallClick}
+              onClick={promptInstall}
               aria-label="Instalar app en tu dispositivo"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -148,7 +68,7 @@ export default function PwaInstallPrompt() {
             <button
               type="button"
               className="pwa-dismiss-btn"
-              onClick={handleDismiss}
+              onClick={dismissBanner}
               aria-label="Cerrar aviso de instalación"
               title="Cerrar aviso"
             >
@@ -191,6 +111,25 @@ export default function PwaInstallPrompt() {
             </div>
 
             <div className="pwa-modal__body">
+              {/* Video demostrativo guiado para iOS */}
+              <div className="pwa-modal__video-wrapper">
+                <video
+                  className="pwa-modal__video"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  controls
+                  preload="auto"
+                  aria-label="Video demostrativo de instalación en iPhone"
+                >
+                  <source src="/install-apple.mp4" type="video/mp4" />
+                  <source src="/install%20apple.mp4" type="video/mp4" />
+                  <source src="/install apple.mp4" type="video/mp4" />
+                  Tu navegador no soporta reproducción de video.
+                </video>
+              </div>
+
               <div className="pwa-step">
                 <div className="pwa-step__num">1</div>
                 <div className="pwa-step__text">

@@ -2,7 +2,7 @@
   "name": "Zumaque 90.5 FM — La Fija en tu Radio",
   "short_name": "Zumaque 90.5",
   "description": "Escucha en vivo Zumaque 90.5 FM, programación, noticias, encuestas y podcasts.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -3,10 +3,12 @@ import { nav } from '../data/station.js'
 import NavLink from './NavLink.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import { useStation } from '../context/StationContext.jsx'
+import { usePwa } from '../context/PwaContext.jsx'
 
 export default function Header() {
   const [open, setOpen] = useState(false)
   const station = useStation()
+  const { isInstalled, promptInstall } = usePwa()
 
   return (
     <header className="header">
@@ -24,20 +26,22 @@ export default function Header() {
             ))}
           </nav>
 
-          <button
-            type="button"
-            className="header__install-btn"
-            title="Instalar aplicación en tu dispositivo"
-            aria-label="Instalar aplicación móvil"
-            onClick={() => window.dispatchEvent(new CustomEvent('pwa-open-install'))}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span className="header__install-text">Instalar App</span>
-          </button>
+          {!isInstalled && (
+            <button
+              type="button"
+              className="header__install-btn"
+              title="Instalar aplicación en tu dispositivo"
+              aria-label="Instalar aplicación móvil"
+              onClick={promptInstall}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span className="header__install-text">Instalar App</span>
+            </button>
+          )}
 
           <ThemeToggle />
 
