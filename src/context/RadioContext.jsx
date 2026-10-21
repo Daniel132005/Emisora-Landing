@@ -8,6 +8,16 @@ const DEVICE_TOKEN_KEY = 'zumaque:device_token'
 const POLL_VOTES_KEY = 'zumaque:poll_votes'
 const SONG_VOTES_KEY = 'zumaque:song_votes'
 // Señal Matriz: el servidor backend sirve el audio en vivo y música en off continuo 24/7
+function canPlayWebmOpus() {
+  if (typeof document === 'undefined') return true
+  try {
+    const a = document.createElement('audio')
+    return Boolean(a.canPlayType && a.canPlayType('audio/webm; codecs="opus"').replace(/no/, ''))
+  } catch {
+    return false
+  }
+}
+
 const MAIN_STREAM = `${API_URL}/stream`
 
 const RETRY_BASE_MS = 2000
@@ -139,8 +149,14 @@ export function RadioProvider({ children }) {
         targetSrc = `${API_URL}/api/public/channels/${targetChannel.slug}/stream`
         sourceName = 'channel'
       } else {
-        targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
-        sourceName = isLive ? 'live' : 'ambient'
+        // En vivo: Safari e iOS no soportan WebM Opus nativo en audio HTML5, así que usamos el stream MP3 universal (/live.mp3)
+        if (isLive && !canPlayWebmOpus()) {
+          targetSrc = `${ICECAST_URL}?_t=${Date.now()}`
+          sourceName = 'live'
+        } else {
+          targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
+          sourceName = isLive ? 'live' : 'ambient'
+        }
       }
 
       if (!wantPlay.current) return false
@@ -153,6 +169,16 @@ export function RadioProvider({ children }) {
         setError('')
         return true
       } catch (err) {
+        // Respaldo para iOS/Safari: si falló /stream y estamos en vivo, conmutar al instante al MP3 de Icecast
+        if (isLive && !targetSrc.includes('live.mp3') && !isAlt) {
+          try {
+            audio.src = `${ICECAST_URL}?_t=${Date.now()}`
+            await audio.play()
+            setStreamSource('live')
+            setError('')
+            return true
+          } catch {}
+        }
         if (!wantPlay.current) return false
         console.warn('[Radio] Error al reproducir audio:', err)
         return false
