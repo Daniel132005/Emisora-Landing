@@ -606,7 +606,9 @@ export function RadioProvider({ children }) {
     }
   }, [play, stopPlayback])
 
+
   const value = {
+    apiUrl: API_URL,
     playing,
     loading,
     reconnecting,

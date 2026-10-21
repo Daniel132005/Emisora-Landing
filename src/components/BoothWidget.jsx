@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
+import { API_URL } from '../api/config.js'
 import { useRadio } from '../context/RadioContext.jsx'
 import { useStation } from '../context/StationContext.jsx'
 
 export default function BoothWidget() {
-  const { apiUrl, deviceToken } = useRadio()
+  const { apiUrl: ctxApiUrl, deviceToken } = useRadio()
+  const apiUrl = ctxApiUrl || API_URL
   const station = useStation()
 
   const [isOpen, setIsOpen] = useState(false)
@@ -115,7 +117,7 @@ export default function BoothWidget() {
       formData.append('sender_name', voiceSender.trim() || 'Oyente Web')
       formData.append('device_token', deviceToken)
 
-      const res = await fetch(`${apiUrl}/api/public/booth/audio`, {
+      const res = await fetch(`${apiUrl}/api/public/booth/voice`, {
         method: 'POST',
         body: formData,
       })
@@ -152,9 +154,12 @@ export default function BoothWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          senderName: textSender.trim() || 'Oyente Web',
           sender_name: textSender.trim() || 'Oyente Web',
+          senderPhone: textPhone.trim(),
           sender_phone: textPhone.trim(),
           text: textContent.trim(),
+          deviceToken,
           device_token: deviceToken,
         }),
       })
