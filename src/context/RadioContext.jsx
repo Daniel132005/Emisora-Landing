@@ -139,15 +139,13 @@ export function RadioProvider({ children }) {
         targetSrc = `${API_URL}/api/public/channels/${targetChannel.slug}/stream`
         sourceName = 'channel'
       } else {
-        targetSrc = MAIN_STREAM
+        targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
         sourceName = isLive ? 'live' : 'ambient'
       }
 
       if (!wantPlay.current) return false
 
-      if (audio.src !== targetSrc) {
-        audio.src = targetSrc
-      }
+      audio.src = targetSrc
 
       try {
         await audio.play()
@@ -163,6 +161,11 @@ export function RadioProvider({ children }) {
       switching.current = false
     }
   }, [currentChannel, isLive])
+
+  const connectAudioRef = useRef(connectAudio)
+  useEffect(() => {
+    connectAudioRef.current = connectAudio
+  }, [connectAudio])
 
   /** Reintentos tras cortes */
   const scheduleReconnect = useCallback(() => {
@@ -361,7 +364,20 @@ export function RadioProvider({ children }) {
             const msg = JSON.parse(e.data)
             if (msg.type === 'status') {
               const nowLive = Boolean(msg.live)
-              setIsLive(nowLive)
+              setIsLive((prevLive) => {
+                if (prevLive !== nowLive) {
+                  // Si el locutor acaba de salir al aire o cortar emisión, y el oyente está en la señal matriz:
+                  const isMain = !currentChannelRef.current || currentChannelRef.current.slug === 'matriz'
+                  if (wantPlay.current && isMain) {
+                    setTimeout(() => {
+                      if (wantPlay.current) {
+                        connectAudioRef.current?.(null)
+                      }
+                    }, 300)
+                  }
+                }
+                return nowLive
+              })
               setLiveInfo({
                 program: msg.program || '',
                 host: msg.host || '',
