@@ -2,20 +2,25 @@ import { useState } from 'react'
 import { useRadio } from '../context/RadioContext.jsx'
 
 export default function PollWidget() {
-  const { activePoll, pollVotes, submitPollVote } = useRadio()
+  const { activePoll, pollVotes, submitPollVote, votePoll } = useRadio()
   const [submittingId, setSubmittingId] = useState(null)
 
-  if (!activePoll) return null
+  if (!activePoll || !activePoll.id || !activePoll.question) return null
 
-  const userVotedOptionId = pollVotes[activePoll.id]
-  const hasVoted = Boolean(userVotedOptionId)
-  const totalVotes = activePoll.totalVotes || (activePoll.options || []).reduce((acc, o) => acc + (o.votes_count || 0), 0)
+  const userVotedOptionId = pollVotes ? pollVotes[activePoll.id] : null
+  const hasVoted = userVotedOptionId !== undefined && userVotedOptionId !== null
+  const totalVotes =
+    activePoll.totalVotes ??
+    (activePoll.options || []).reduce((acc, o) => acc + (o.votes ?? o.votes_count ?? 0), 0)
 
   const handleVote = async (optionId) => {
     if (hasVoted || submittingId) return
     setSubmittingId(optionId)
+    const doVote = submitPollVote || votePoll
     try {
-      await submitPollVote(optionId)
+      if (typeof doVote === 'function') {
+        await doVote(optionId)
+      }
     } finally {
       setSubmittingId(null)
     }
@@ -38,9 +43,14 @@ export default function PollWidget() {
 
         <div className="poll-widget__options">
           {(activePoll.options || []).map((opt) => {
-            const isSelected = userVotedOptionId === opt.id
-            const count = opt.votes_count || 0
-            const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0
+            const isSelected = String(userVotedOptionId) === String(opt.id)
+            const count = opt.votes ?? opt.votes_count ?? 0
+            const pct =
+              opt.percent !== undefined
+                ? opt.percent
+                : totalVotes > 0
+                ? Math.round((count / totalVotes) * 100)
+                : 0
 
             if (hasVoted) {
               // Vista con barras de resultados en tiempo real

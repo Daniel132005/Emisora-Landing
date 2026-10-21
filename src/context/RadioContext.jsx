@@ -332,7 +332,11 @@ export function RadioProvider({ children }) {
         }
         if (pollRes.status === 'fulfilled' && pollRes.value.ok) {
           const pData = await pollRes.value.json()
-          setActivePoll(pData)
+          if (pData && pData.id) {
+            setActivePoll(pData)
+          } else {
+            setActivePoll(null)
+          }
         }
         if (vrRes.status === 'fulfilled' && vrRes.value.ok) {
           const vrData = await vrRes.value.json()
@@ -434,10 +438,37 @@ export function RadioProvider({ children }) {
                 }
                 return prev
               })
-            } else if (msg.type === 'poll_active') {
-              setActivePoll(msg.data)
-            } else if (msg.type === 'poll_voted') {
-              setActivePoll((prev) => (prev && prev.id === msg.data.id ? msg.data : prev))
+            } else if (msg.type === 'poll_started' || msg.type === 'poll_active') {
+              const p = msg.poll || msg.data
+              if (p && p.id) {
+                setActivePoll(p)
+              }
+            } else if (msg.type === 'poll_update' || msg.type === 'poll_voted') {
+              const updatedPoll = msg.poll || msg.data
+              setActivePoll((prev) => {
+                if (!prev) return (updatedPoll && updatedPoll.id) ? updatedPoll : null
+                const pId = msg.pollId || (updatedPoll && updatedPoll.id)
+                if (pId && (prev.id === pId || String(prev.id) === String(pId))) {
+                  if (updatedPoll && updatedPoll.options) {
+                    return updatedPoll
+                  }
+                  return {
+                    ...prev,
+                    totalVotes: msg.totalVotes ?? prev.totalVotes,
+                    options: msg.options ?? prev.options,
+                  }
+                }
+                return prev
+              })
+            } else if (msg.type === 'poll_closed') {
+              const closedId = msg.pollId
+              setActivePoll((prev) => {
+                if (!prev) return null
+                if (!closedId || prev.id === closedId || String(prev.id) === String(closedId)) {
+                  return null
+                }
+                return prev
+              })
             } else if (msg.type === 'visual_radio') {
               const v = msg.visual || msg.data || {}
               setVisualRadio({
@@ -543,7 +574,7 @@ export function RadioProvider({ children }) {
 
   // Votar en la encuesta
   const votePoll = useCallback(async (optionId) => {
-    if (!activePoll || pollVotes[activePoll.id]) return
+    if (!activePoll || !activePoll.id || pollVotes[activePoll.id]) return
 
     setPollVotes((prev) => {
       const next = { ...prev, [activePoll.id]: optionId }
@@ -556,13 +587,18 @@ export function RadioProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          optionId,
-          deviceToken: deviceToken.current,
+          optionId: Number(optionId),
+          deviceToken: deviceToken.current || getOrCreateDeviceToken(),
         }),
       })
       if (res.ok) {
         const updated = await res.json()
         setActivePoll(updated)
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        if (errData && errData.poll) {
+          setActivePoll(errData.poll)
+        }
       }
     } catch (e) {
       console.warn('[Radio] Error al votar en encuesta:', e)
@@ -590,6 +626,7 @@ export function RadioProvider({ children }) {
     activePoll,
     pollVotes,
     votePoll,
+    submitPollVote: votePoll,
     visualRadio,
     deviceToken: deviceToken.current,
     toggle,
