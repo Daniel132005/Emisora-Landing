@@ -64,6 +64,7 @@ export function RadioProvider({ children }) {
   const [reconnecting, setReconnecting] = useState(false)
   const [error, setError] = useState('')
   const [volume, setVolumeState] = useState(savedVolume)
+  const [ducked, setDucked] = useState(false)
   const [muted, setMuted] = useState(false)
   const [streamSource, setStreamSource] = useState(null)
 
@@ -84,6 +85,9 @@ export function RadioProvider({ children }) {
   const [activePoll, setActivePoll] = useState(null)
   const [pollVotes, setPollVotes] = useState(() => loadStoredVotes(POLL_VOTES_KEY))
 
+  // Mensaje de Cabina al Aire en vivo
+  const [boothOnAir, setBoothOnAir] = useState(null)
+
   // Radio Visual
   const [visualRadio, setVisualRadio] = useState({ enabled: false, platform: 'youtube', stream_url: '' })
 
@@ -95,12 +99,20 @@ export function RadioProvider({ children }) {
   const unmounted = useRef(false)
   const wsRef = useRef(null)
 
-  // Sincronizar volumen
+  // Sincronizar volumen con soporte de atenuación suave (ducking) para notas de voz al aire
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = muted ? 0 : volume
+      if (muted) {
+        audioRef.current.volume = 0
+      } else if (ducked) {
+        // Ducking: reduce el volumen de la radio de fondo al 30% para que se escuche el audio del oyente
+        // y el locutor pueda hablar sobre la pista si lo desea
+        audioRef.current.volume = Math.max(0.05, volume * 0.3)
+      } else {
+        audioRef.current.volume = volume
+      }
     }
-  }, [volume, muted])
+  }, [volume, muted, ducked])
 
   const setVolume = useCallback((v) => {
     const clamped = Math.min(1, Math.max(0, v))
@@ -299,11 +311,12 @@ export function RadioProvider({ children }) {
 
     const fetchInitialData = async () => {
       try {
-        const [chRes, npRes, pollRes, vrRes] = await Promise.allSettled([
+        const [chRes, npRes, pollRes, vrRes, boothRes] = await Promise.allSettled([
           fetch(`${API_URL}/api/public/channels`),
           fetch(`${API_URL}/api/public/now-playing`),
           fetch(`${API_URL}/api/public/polls/active`),
           fetch(`${API_URL}/api/public/visual-radio`),
+          fetch(`${API_URL}/api/public/booth/active`),
         ])
 
         if (chRes.status === 'fulfilled' && chRes.value.ok) {
@@ -346,6 +359,14 @@ export function RadioProvider({ children }) {
             enabled: Boolean(vrData.active ?? vrData.enabled),
             stream_url: vrData.embedUrl || vrData.stream_url || vrData.streamId || '',
           })
+        }
+        if (boothRes && boothRes.status === 'fulfilled' && boothRes.value.ok) {
+          const bData = await boothRes.value.json()
+          if (bData && bData.id && bData.status === 'on_air') {
+            setBoothOnAir(bData)
+          } else {
+            setBoothOnAir(null)
+          }
         }
       } catch (e) {
         console.warn('[RadioContext] Error cargando datos iniciales:', e)
@@ -417,6 +438,10 @@ export function RadioProvider({ children }) {
               if (nowLive) {
                 // Si la cabina sale al aire y no hay canción fijada por el locutor, limpiar pista de fondo
                 setNowPlaying((prev) => (prev.track?.fromStudio ? prev : { track: null, history: prev.history || [] }))
+              } else {
+                // Si la transmisión en vivo terminó, retirar mensajes al aire de cabina
+                setBoothOnAir(null)
+                setDucked(false)
               }
             } else if (msg.type === 'now_playing') {
               const track = msg.data?.track || (msg.data?.id || msg.data?.title ? msg.data : null)
@@ -469,6 +494,15 @@ export function RadioProvider({ children }) {
                 }
                 return prev
               })
+            } else if (msg.type === 'booth_on_air') {
+              const b = msg.message || msg.data
+              if (b && b.id) {
+                // Si llega por WebSocket en tiempo real, marcarlo con autoPlay y triggerTime
+                setBoothOnAir({ ...b, autoPlay: true, triggerTime: Date.now() })
+              }
+            } else if (msg.type === 'booth_off_air') {
+              setBoothOnAir(null)
+              setDucked(false)
             } else if (msg.type === 'visual_radio') {
               const v = msg.visual || msg.data || {}
               setVisualRadio({
@@ -627,6 +661,9 @@ export function RadioProvider({ children }) {
     pollVotes,
     votePoll,
     submitPollVote: votePoll,
+    boothOnAir,
+    setBoothOnAir,
+    duckRadio: (shouldDuck) => setDucked(Boolean(shouldDuck)),
     visualRadio,
     deviceToken: deviceToken.current,
     toggle,
