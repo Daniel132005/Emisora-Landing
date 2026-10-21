@@ -1,0 +1,60 @@
+{
+  "name": "Zumaque 90.5 FM — La Fija en tu Radio",
+  "short_name": "Zumaque 90.5",
+  "description": "Escucha en vivo Zumaque 90.5 FM, programación, noticias, encuestas y podcasts.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#110b17",
+  "theme_color": "#520a80",
+  "lang": "es",
+  "categories": ["music", "entertainment", "news"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Señal en Vivo",
+      "short_name": "En Vivo",
+      "description": "Escucha la transmisión en vivo de Zumaque 90.5 FM",
+      "url": "/#en-vivo",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Programación",
+      "short_name": "Parrilla",
+      "description": "Consulta los horarios y programas de la emisora",
+      "url": "/#programacion",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

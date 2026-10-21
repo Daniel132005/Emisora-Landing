@@ -11,3 +11,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 )
+
+// Registrar Service Worker para soporte PWA y modo offline
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        console.log('[PWA] Service Worker activo:', reg.scope)
+      })
+      .catch((err) => {
+        console.warn('[PWA] Error al registrar Service Worker:', err)
+      })
+  })
+}
+

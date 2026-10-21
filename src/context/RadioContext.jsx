@@ -527,6 +527,85 @@ export function RadioProvider({ children }) {
     }
   }, [activePoll, pollVotes])
 
+  // Integración con Media Session API (Pantalla de bloqueo, barra de notificaciones y Bluetooth)
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || typeof window.MediaMetadata === 'undefined') return
+
+    try {
+      let title = station.name || 'Zumaque 90.5 FM'
+      let artist = station.slogan || 'La Fija en tu Radio'
+      const album = `${station.name || 'Zumaque'} (90.5 FM)`
+
+      if (currentChannel && currentChannel.slug !== 'matriz' && currentChannel.name) {
+        title = nowPlaying.track?.title
+          ? `${nowPlaying.track.title} — ${currentChannel.name}`
+          : currentChannel.name
+        artist = nowPlaying.track?.artist || 'Canal Temático'
+      } else if (nowPlaying.track?.title) {
+        title = nowPlaying.track.title
+        artist = nowPlaying.track.artist || (isLive && liveInfo.host ? `Con ${liveInfo.host}` : station.name)
+      } else if (isLive && liveInfo.program) {
+        title = liveInfo.program
+        artist = liveInfo.host ? `Con ${liveInfo.host}` : 'En Vivo'
+      }
+
+      const artwork = [
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      ]
+
+      const trackCover = nowPlaying.track?.cover || nowPlaying.track?.image
+      if (trackCover) {
+        artwork.unshift({
+          src: trackCover,
+          sizes: '512x512',
+          type: 'image/jpeg',
+        })
+      }
+
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title,
+        artist,
+        album,
+        artwork,
+      })
+
+      navigator.mediaSession.playbackState = playing ? 'playing' : (loading ? 'none' : 'paused')
+    } catch (e) {
+      console.warn('[MediaSession] Error actualizando metadatos:', e)
+    }
+  }, [playing, loading, nowPlaying, isLive, liveInfo, currentChannel, station.name, station.slogan])
+
+  // Acciones físicas y remotas (Play, Pausa, Stop desde auriculares o pantalla de bloqueo)
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+
+    try {
+      navigator.mediaSession.setActionHandler('play', () => {
+        play()
+      })
+      navigator.mediaSession.setActionHandler('pause', () => {
+        stopPlayback()
+      })
+      navigator.mediaSession.setActionHandler('stop', () => {
+        stopPlayback()
+      })
+    } catch (e) {
+      console.warn('[MediaSession] Error configurando handlers:', e)
+    }
+
+    return () => {
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.setActionHandler('play', null)
+          navigator.mediaSession.setActionHandler('pause', null)
+          navigator.mediaSession.setActionHandler('stop', null)
+        } catch {}
+      }
+    }
+  }, [play, stopPlayback])
+
   const value = {
     playing,
     loading,

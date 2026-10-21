@@ -5,6 +5,7 @@ import MiniPlayer from './components/MiniPlayer.jsx'
 import AnnouncementBar from './components/AnnouncementBar.jsx'
 import ScrollManager from './components/ScrollManager.jsx'
 import BoothWidget from './components/BoothWidget.jsx'
+import PwaInstallPrompt from './components/PwaInstallPrompt.jsx'
 import Home from './pages/Home.jsx'
 import NewsPage from './pages/NewsPage.jsx'
 import ArticlePage from './pages/ArticlePage.jsx'
@@ -36,8 +37,11 @@ export default function App() {
           {/* Cabina Directa (Grabador de notas de voz web + WhatsApp) */}
           <BoothWidget />
           <MiniPlayer />
+          {/* Banner y modal de instalación PWA */}
+          <PwaInstallPrompt />
         </RadioProvider>
       </ScheduleProvider>
     </StationProvider>
   )
 }
+
