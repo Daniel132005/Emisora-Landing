@@ -20,6 +20,7 @@ export default function BoothWidget() {
   const [voiceSending, setVoiceSending] = useState(false)
   const [voiceSuccess, setVoiceSuccess] = useState(false)
   const [voiceError, setVoiceError] = useState('')
+  const [voiceTranscription, setVoiceTranscription] = useState('')
 
   // Mensaje de texto
   const [textSender, setTextSender] = useState('')
@@ -32,26 +33,101 @@ export default function BoothWidget() {
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const timerRef = useRef(null)
+  const streamRef = useRef(null)
+  const startTimeRef = useRef(null)
+  const isStartingRef = useRef(false)
+  const speechRecognitionRef = useRef(null)
+  const transcriptionRef = useRef('')
 
-  // Limpiar timers al desmontar
+  // Limpiar timers y streams al desmontar
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      if (streamRef.current) {
+        try { streamRef.current.getTracks().forEach((track) => track.stop()) } catch {}
+        streamRef.current = null
+      }
       if (audioUrl) URL.revokeObjectURL(audioUrl)
     }
   }, [audioUrl])
 
-  // Iniciar grabación de audio
+  // Detener grabación y volcar todo el búfer de audio
+  const stopRecording = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (speechRecognitionRef.current) {
+      try { speechRecognitionRef.current.stop() } catch {}
+      speechRecognitionRef.current = null
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.requestData?.() } catch {}
+      try { mediaRecorderRef.current.stop() } catch {}
+    }
+    if (streamRef.current) {
+      try { streamRef.current.getTracks().forEach((track) => track.stop()) } catch {}
+      streamRef.current = null
+    }
+    setIsRecording(false)
+    isStartingRef.current = false
+  }
+
+  // Iniciar grabación de audio con reconocimiento de voz integrado
   const startRecording = async () => {
+    if (isStartingRef.current || isRecording) return
+    isStartingRef.current = true
     setVoiceError('')
     setVoiceSuccess(false)
+    setVoiceTranscription('')
+    transcriptionRef.current = ''
     setAudioBlob(null)
     if (audioUrl) URL.revokeObjectURL(audioUrl)
     setAudioUrl(null)
 
+    // Detener cualquier grabación o timer residual antes de arrancar
+    stopRecording()
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
       audioChunksRef.current = []
+
+      // Iniciar reconocimiento de voz Web Speech API si el navegador lo soporta
+      const SpeechClass = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null
+      if (SpeechClass) {
+        try {
+          const recognizer = new SpeechClass()
+          recognizer.continuous = true
+          recognizer.interimResults = true
+          recognizer.lang = 'es-VE' // Español de Venezuela
+          recognizer.maxAlternatives = 1
+
+          recognizer.onresult = (evt) => {
+            let fullText = ''
+            for (let i = 0; i < evt.results.length; i++) {
+              fullText += evt.results[i][0].transcript + ' '
+            }
+            const clean = fullText.trim()
+            if (clean) {
+              setVoiceTranscription(clean)
+              transcriptionRef.current = clean
+            }
+          }
+
+          recognizer.onerror = (e) => {
+            console.warn('[Booth SpeechRecognition] Aviso:', e.error)
+          }
+
+          recognizer.start()
+          speechRecognitionRef.current = recognizer
+        } catch (e) {
+          console.warn('[Booth SpeechRecognition] No inicializado:', e)
+        }
+      }
 
       // Usar audio/webm o audio/mp4 según soporte
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -68,41 +144,52 @@ export default function BoothWidget() {
       }
 
       recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop())
+        if (streamRef.current) {
+          try { streamRef.current.getTracks().forEach((track) => track.stop()) } catch {}
+          streamRef.current = null
+        }
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        if (speechRecognitionRef.current) {
+          try { speechRecognitionRef.current.stop() } catch {}
+          speechRecognitionRef.current = null
+        }
         const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         setAudioBlob(blob)
         setAudioUrl(URL.createObjectURL(blob))
         setIsRecording(false)
-        if (timerRef.current) clearInterval(timerRef.current)
+        isStartingRef.current = false
+
+        if (startTimeRef.current) {
+          const finalDuration = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000))
+          setRecordDuration(finalDuration)
+        }
       }
 
       recorder.start(250)
       setIsRecording(true)
+      isStartingRef.current = false
+
+      const start = Date.now()
+      startTimeRef.current = start
       setRecordDuration(0)
 
       timerRef.current = setInterval(() => {
-        setRecordDuration((prev) => {
-          if (prev >= 59) {
-            stopRecording()
-            return 60
-          }
-          return prev + 1
-        })
-      }, 1000)
+        const elapsed = Math.floor((Date.now() - start) / 1000)
+        if (elapsed >= 60) {
+          setRecordDuration(60)
+          stopRecording()
+        } else {
+          setRecordDuration(elapsed)
+        }
+      }, 250)
     } catch (err) {
+      isStartingRef.current = false
       console.warn('[Booth] Error micrófono:', err)
       setVoiceError('No se pudo acceder al micrófono. Por favor verifica los permisos del navegador.')
     }
-  }
-
-  // Detener grabación y volcar todo el búfer de audio
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.requestData?.() } catch {}
-      mediaRecorderRef.current.stop()
-    }
-    if (timerRef.current) clearInterval(timerRef.current)
-    setIsRecording(false)
   }
 
   // Enviar nota de voz al servidor
@@ -114,6 +201,7 @@ export default function BoothWidget() {
 
     try {
       const senderVal = voiceSender.trim() || 'Oyente Web'
+      const transcriptVal = (transcriptionRef.current || voiceTranscription || '').trim()
       const formData = new FormData()
       // Enviar como 'file' (estándar de Busboy en backend) y como 'audio' por compatibilidad
       formData.append('file', audioBlob, 'voice_note.webm')
@@ -121,8 +209,12 @@ export default function BoothWidget() {
       formData.append('sender', senderVal)
       formData.append('sender_name', senderVal)
       formData.append('device_token', deviceToken)
+      if (transcriptVal) {
+        formData.append('transcription', transcriptVal)
+      }
 
-      const res = await fetch(`${apiUrl}/api/public/booth/voice?sender=${encodeURIComponent(senderVal)}`, {
+      const uploadUrl = `${apiUrl}/api/public/booth/voice?sender=${encodeURIComponent(senderVal)}${transcriptVal ? '&transcription=' + encodeURIComponent(transcriptVal) : ''}`
+      const res = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       })
@@ -188,8 +280,23 @@ export default function BoothWidget() {
   }
 
   const formatTimer = (sec) => {
+    const mins = Math.floor(sec / 60)
     const s = sec % 60
-    return `00:${s < 10 ? '0' : ''}${s}`
+    return `${mins < 10 ? '0' : ''}${mins}:${s < 10 ? '0' : ''}${s}`
+  }
+
+  const closeModal = () => {
+    if (isRecording) {
+      stopRecording()
+    }
+    setIsOpen(false)
+  }
+
+  const handleTabChange = (tab) => {
+    if (isRecording && tab !== 'voice') {
+      stopRecording()
+    }
+    setActiveTab(tab)
   }
 
   const whatsappLink = `https://wa.me/${station.whatsapp}?text=Hola%20Zumaque%2090.5%20FM,%20estoy%20escuchando%20la%20radio...`
@@ -212,7 +319,7 @@ export default function BoothWidget() {
 
       {/* Modal / Panel de Cabina Directa */}
       {isOpen && (
-        <div className="booth-modal-backdrop" onClick={() => setIsOpen(false)}>
+        <div className="booth-modal-backdrop" onClick={closeModal}>
           <div className="booth-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="booth-modal__header">
               <div>
@@ -222,7 +329,7 @@ export default function BoothWidget() {
               </div>
               <button
                 className="booth-modal__close"
-                onClick={() => setIsOpen(false)}
+                onClick={closeModal}
                 aria-label="Cerrar ventana"
               >
                 ✕
@@ -235,7 +342,7 @@ export default function BoothWidget() {
                 role="tab"
                 aria-selected={activeTab === 'voice'}
                 className={`booth-tab ${activeTab === 'voice' ? 'booth-tab--active' : ''}`}
-                onClick={() => setActiveTab('voice')}
+                onClick={() => handleTabChange('voice')}
               >
                 🎙️ Nota de Voz
               </button>
@@ -243,7 +350,7 @@ export default function BoothWidget() {
                 role="tab"
                 aria-selected={activeTab === 'text'}
                 className={`booth-tab ${activeTab === 'text' ? 'booth-tab--active' : ''}`}
-                onClick={() => setActiveTab('text')}
+                onClick={() => handleTabChange('text')}
               >
                 💬 Mensaje Texto
               </button>
@@ -251,7 +358,7 @@ export default function BoothWidget() {
                 role="tab"
                 aria-selected={activeTab === 'whatsapp'}
                 className={`booth-tab ${activeTab === 'whatsapp' ? 'booth-tab--active' : ''}`}
-                onClick={() => setActiveTab('whatsapp')}
+                onClick={() => handleTabChange('whatsapp')}
               >
                 📱 WhatsApp
               </button>
@@ -292,6 +399,11 @@ export default function BoothWidget() {
                               <span /><span /><span /><span /><span />
                             </div>
                             <div className="voice-timer">{formatTimer(recordDuration)} / 01:00</div>
+                            {voiceTranscription && (
+                              <p className="voice-live-transcript" style={{ fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic', maxWidth: '300px', textAlign: 'center', margin: '4px 0 0', lineHeight: 1.3 }}>
+                                «{voiceTranscription}»
+                              </p>
+                            )}
                             <button
                               type="button"
                               className="voice-stop-btn"
@@ -307,6 +419,16 @@ export default function BoothWidget() {
                           <div className="voice-recorder__preview">
                             <p className="voice-preview-title">Escucha tu mensaje ({formatTimer(recordDuration)}) antes de enviar:</p>
                             <audio controls src={audioUrl} className="voice-preview-audio" />
+                            {voiceTranscription && (
+                              <div className="voice-preview-transcript" style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: '0.85rem', textAlign: 'left', boxSizing: 'border-box' }}>
+                                <strong style={{ color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span>📝</span> Transcripción detectada:
+                                </strong>
+                                <p style={{ margin: '4px 0 0', color: '#334155', fontStyle: 'italic', lineHeight: 1.4 }}>
+                                  "{voiceTranscription}"
+                                </p>
+                              </div>
+                            )}
                             <div className="voice-preview-actions">
                               <button
                                 type="button"
