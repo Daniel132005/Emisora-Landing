@@ -8,6 +8,16 @@ const DEVICE_TOKEN_KEY = 'zumaque:device_token'
 const POLL_VOTES_KEY = 'zumaque:poll_votes'
 const SONG_VOTES_KEY = 'zumaque:song_votes'
 // Señal Matriz: el servidor backend sirve el audio en vivo y música en off continuo 24/7
+function canPlayWebmOpus() {
+  if (typeof document === 'undefined') return true
+  try {
+    const a = document.createElement('audio')
+    return Boolean(a.canPlayType && a.canPlayType('audio/webm; codecs="opus"').replace(/no/, ''))
+  } catch {
+    return false
+  }
+}
+
 const MAIN_STREAM = `${API_URL}/stream`
 
 const RETRY_BASE_MS = 2000
@@ -139,15 +149,19 @@ export function RadioProvider({ children }) {
         targetSrc = `${API_URL}/api/public/channels/${targetChannel.slug}/stream`
         sourceName = 'channel'
       } else {
-        targetSrc = MAIN_STREAM
-        sourceName = isLive ? 'live' : 'ambient'
+        // En vivo: Safari e iOS no soportan WebM Opus nativo en audio HTML5, así que usamos el stream MP3 universal (/live.mp3)
+        if (isLive && !canPlayWebmOpus()) {
+          targetSrc = `${ICECAST_URL}?_t=${Date.now()}`
+          sourceName = 'live'
+        } else {
+          targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
+          sourceName = isLive ? 'live' : 'ambient'
+        }
       }
 
       if (!wantPlay.current) return false
 
-      if (audio.src !== targetSrc) {
-        audio.src = targetSrc
-      }
+      audio.src = targetSrc
 
       try {
         await audio.play()
@@ -155,6 +169,16 @@ export function RadioProvider({ children }) {
         setError('')
         return true
       } catch (err) {
+        // Respaldo para iOS/Safari: si falló /stream y estamos en vivo, conmutar al instante al MP3 de Icecast
+        if (isLive && !targetSrc.includes('live.mp3') && !isAlt) {
+          try {
+            audio.src = `${ICECAST_URL}?_t=${Date.now()}`
+            await audio.play()
+            setStreamSource('live')
+            setError('')
+            return true
+          } catch {}
+        }
         if (!wantPlay.current) return false
         console.warn('[Radio] Error al reproducir audio:', err)
         return false
@@ -163,6 +187,11 @@ export function RadioProvider({ children }) {
       switching.current = false
     }
   }, [currentChannel, isLive])
+
+  const connectAudioRef = useRef(connectAudio)
+  useEffect(() => {
+    connectAudioRef.current = connectAudio
+  }, [connectAudio])
 
   /** Reintentos tras cortes */
   const scheduleReconnect = useCallback(() => {
@@ -303,7 +332,11 @@ export function RadioProvider({ children }) {
         }
         if (pollRes.status === 'fulfilled' && pollRes.value.ok) {
           const pData = await pollRes.value.json()
-          setActivePoll(pData)
+          if (pData && pData.id) {
+            setActivePoll(pData)
+          } else {
+            setActivePoll(null)
+          }
         }
         if (vrRes.status === 'fulfilled' && vrRes.value.ok) {
           const vrData = await vrRes.value.json()
@@ -361,7 +394,20 @@ export function RadioProvider({ children }) {
             const msg = JSON.parse(e.data)
             if (msg.type === 'status') {
               const nowLive = Boolean(msg.live)
-              setIsLive(nowLive)
+              setIsLive((prevLive) => {
+                if (prevLive !== nowLive) {
+                  // Si el locutor acaba de salir al aire o cortar emisión, y el oyente está en la señal matriz:
+                  const isMain = !currentChannelRef.current || currentChannelRef.current.slug === 'matriz'
+                  if (wantPlay.current && isMain) {
+                    setTimeout(() => {
+                      if (wantPlay.current) {
+                        connectAudioRef.current?.(null)
+                      }
+                    }, 300)
+                  }
+                }
+                return nowLive
+              })
               setLiveInfo({
                 program: msg.program || '',
                 host: msg.host || '',
@@ -392,10 +438,37 @@ export function RadioProvider({ children }) {
                 }
                 return prev
               })
-            } else if (msg.type === 'poll_active') {
-              setActivePoll(msg.data)
-            } else if (msg.type === 'poll_voted') {
-              setActivePoll((prev) => (prev && prev.id === msg.data.id ? msg.data : prev))
+            } else if (msg.type === 'poll_started' || msg.type === 'poll_active') {
+              const p = msg.poll || msg.data
+              if (p && p.id) {
+                setActivePoll(p)
+              }
+            } else if (msg.type === 'poll_update' || msg.type === 'poll_voted') {
+              const updatedPoll = msg.poll || msg.data
+              setActivePoll((prev) => {
+                if (!prev) return (updatedPoll && updatedPoll.id) ? updatedPoll : null
+                const pId = msg.pollId || (updatedPoll && updatedPoll.id)
+                if (pId && (prev.id === pId || String(prev.id) === String(pId))) {
+                  if (updatedPoll && updatedPoll.options) {
+                    return updatedPoll
+                  }
+                  return {
+                    ...prev,
+                    totalVotes: msg.totalVotes ?? prev.totalVotes,
+                    options: msg.options ?? prev.options,
+                  }
+                }
+                return prev
+              })
+            } else if (msg.type === 'poll_closed') {
+              const closedId = msg.pollId
+              setActivePoll((prev) => {
+                if (!prev) return null
+                if (!closedId || prev.id === closedId || String(prev.id) === String(closedId)) {
+                  return null
+                }
+                return prev
+              })
             } else if (msg.type === 'visual_radio') {
               const v = msg.visual || msg.data || {}
               setVisualRadio({
@@ -501,7 +574,7 @@ export function RadioProvider({ children }) {
 
   // Votar en la encuesta
   const votePoll = useCallback(async (optionId) => {
-    if (!activePoll || pollVotes[activePoll.id]) return
+    if (!activePoll || !activePoll.id || pollVotes[activePoll.id]) return
 
     setPollVotes((prev) => {
       const next = { ...prev, [activePoll.id]: optionId }
@@ -514,13 +587,18 @@ export function RadioProvider({ children }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          optionId,
-          deviceToken: deviceToken.current,
+          optionId: Number(optionId),
+          deviceToken: deviceToken.current || getOrCreateDeviceToken(),
         }),
       })
       if (res.ok) {
         const updated = await res.json()
         setActivePoll(updated)
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        if (errData && errData.poll) {
+          setActivePoll(errData.poll)
+        }
       }
     } catch (e) {
       console.warn('[Radio] Error al votar en encuesta:', e)
@@ -628,6 +706,7 @@ export function RadioProvider({ children }) {
     activePoll,
     pollVotes,
     votePoll,
+    submitPollVote: votePoll,
     visualRadio,
     deviceToken: deviceToken.current,
     toggle,

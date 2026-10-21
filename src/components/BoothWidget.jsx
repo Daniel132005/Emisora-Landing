@@ -95,9 +95,10 @@ export default function BoothWidget() {
     }
   }
 
-  // Detener grabación
+  // Detener grabación y volcar todo el búfer de audio
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.requestData?.() } catch {}
       mediaRecorderRef.current.stop()
     }
     if (timerRef.current) clearInterval(timerRef.current)
@@ -112,12 +113,16 @@ export default function BoothWidget() {
     setVoiceError('')
 
     try {
+      const senderVal = voiceSender.trim() || 'Oyente Web'
       const formData = new FormData()
+      // Enviar como 'file' (estándar de Busboy en backend) y como 'audio' por compatibilidad
+      formData.append('file', audioBlob, 'voice_note.webm')
       formData.append('audio', audioBlob, 'voice_note.webm')
-      formData.append('sender_name', voiceSender.trim() || 'Oyente Web')
+      formData.append('sender', senderVal)
+      formData.append('sender_name', senderVal)
       formData.append('device_token', deviceToken)
 
-      const res = await fetch(`${apiUrl}/api/public/booth/voice`, {
+      const res = await fetch(`${apiUrl}/api/public/booth/voice?sender=${encodeURIComponent(senderVal)}`, {
         method: 'POST',
         body: formData,
       })
@@ -300,7 +305,7 @@ export default function BoothWidget() {
 
                         {audioBlob && !isRecording && (
                           <div className="voice-recorder__preview">
-                            <p className="voice-preview-title">Escucha tu mensaje antes de enviar:</p>
+                            <p className="voice-preview-title">Escucha tu mensaje ({formatTimer(recordDuration)}) antes de enviar:</p>
                             <audio controls src={audioUrl} className="voice-preview-audio" />
                             <div className="voice-preview-actions">
                               <button
