@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { podcasts as defaultPodcasts } from '../data/station.js'
 import { useRadio } from '../context/RadioContext.jsx'
+import { useStation } from '../context/StationContext.jsx'
 
 function formatDuration(sec) {
   if (!sec || isNaN(sec)) return '0:00'
@@ -22,6 +23,7 @@ function formatDate(timestamp) {
 
 export default function Podcasts() {
   const { apiUrl, stopPlayback } = useRadio()
+  const station = useStation()
   const [podcastList, setPodcastList] = useState([])
   const [episodes, setEpisodes] = useState([])
   const [activeFilter, setActiveFilter] = useState('all') // 'all' or podcast_id
@@ -61,7 +63,8 @@ export default function Podcasts() {
             setEpisodes(
               recs.filter(r => r.url).map(r => ({
                 id: `rec_${r.id}`,
-                title: r.program || 'Emisión grabada',
+                title: r.title || r.program || 'Emisión grabada',
+                artwork_url: r.artwork_url || r.artworkUrl || null,
                 podcast_title: 'Radio a la Carta',
                 author: r.host,
                 duration_sec: r.durationSec,
@@ -220,16 +223,18 @@ export default function Podcasts() {
         {filteredEpisodes.length > 0 ? (
           filteredEpisodes.map((ep) => {
             const active = currentEpisode?.id === ep.id && isPlaying
-            const cover = ep.artwork_url || ep.podcast_artwork || '/mock/podcasts/historias.jpg'
+            const defaultCover = station?.logoUrl || '/assets/logo.png'
+            const rawCover = ep.artwork_url || ep.podcast_artwork
+            const cover = rawCover ? (rawCover.startsWith('http') ? rawCover : `${apiUrl}${rawCover}`) : defaultCover
             return (
               <article key={ep.id} className={'podcast-card' + (active ? ' is-active' : '')}>
                 <div className="podcast-card__media">
                   <img
-                    src={cover.startsWith('http') ? cover : `${apiUrl}${cover}`}
+                    src={cover}
                     alt={ep.title}
                     className="podcast-card__cover"
                     loading="lazy"
-                    onError={(e) => { e.currentTarget.src = '/mock/podcasts/historias.jpg' }}
+                    onError={(e) => { e.currentTarget.src = defaultCover }}
                   />
                   <button
                     className="podcast-card__play-btn"

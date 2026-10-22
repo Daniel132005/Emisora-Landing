@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import Hero from '../components/Hero.jsx'
 import LivePlayer from '../components/LivePlayer.jsx'
+import BoothOnAirWidget from '../components/BoothOnAirWidget.jsx'
 import PollWidget from '../components/PollWidget.jsx'
 import AdSlot from '../components/AdSlot.jsx'
 import Schedule from '../components/Schedule.jsx'
@@ -25,6 +26,9 @@ export default function Home() {
       <Hero />
       <div className="container">
         <LivePlayer />
+
+        {/* Mensaje al Aire desde Cabina */}
+        <BoothOnAirWidget />
 
         {/* Módulo de Encuesta Sincronizada en Vivo */}
         <PollWidget />
