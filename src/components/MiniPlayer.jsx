@@ -14,7 +14,8 @@ export default function MiniPlayer() {
   const [visible, setVisible] = useState(false)
   const { pathname } = useLocation()
 
-  const showTitle = (isLive && liveInfo.program) ? liveInfo.program : scheduled.show
+  const isGenericAdmin = (val) => !val || /administrador|admin/i.test(String(val).trim())
+  const showTitle = (isLive && liveInfo.program && !isGenericAdmin(liveInfo.program)) ? liveInfo.program : scheduled.show
 
   useEffect(() => {
     const target = document.querySelector('.player')

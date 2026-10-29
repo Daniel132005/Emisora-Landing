@@ -655,10 +655,10 @@ export function RadioProvider({ children }) {
         artist = nowPlaying.track?.artist || 'Canal Temático'
       } else if (nowPlaying.track?.title) {
         title = nowPlaying.track.title
-        artist = nowPlaying.track.artist || (isLive && liveInfo.host ? `Con ${liveInfo.host}` : station.name)
+        artist = nowPlaying.track.artist || station.name
       } else if (isLive && liveInfo.program) {
         title = liveInfo.program
-        artist = liveInfo.host ? `Con ${liveInfo.host}` : 'En Vivo'
+        artist = station.name || 'En Vivo'
       }
 
       const artwork = [

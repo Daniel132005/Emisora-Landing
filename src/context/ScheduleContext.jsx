@@ -35,7 +35,9 @@ export function ScheduleProvider({ children }) {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => data && setSchedule({
           programs: data.programs,
-          hosts: data.hosts.map((h) => ({ ...h, staticPhoto: STATIC_PHOTOS[h.name] ?? null })),
+          hosts: (data.hosts || [])
+            .filter((h) => h?.name && !/administrador|admin/i.test(String(h.name).trim()))
+            .map((h) => ({ ...h, staticPhoto: STATIC_PHOTOS[h.name] ?? null })),
         }))
         .catch(() => {}) // sin servidor: se queda el respaldo
 

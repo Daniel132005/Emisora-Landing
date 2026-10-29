@@ -25,10 +25,8 @@ export const nav = [
   { label: 'Noticias', href: '#noticias' },
   { label: 'Programación', href: '#programacion' },
   { label: 'En vivo', href: '#en-vivo' },
-  { label: 'Podcasts', href: '#podcasts' },
   { label: 'Voces', href: '#voces' },
   { label: 'Galería', href: '#galeria' },
-  { label: 'Publicidad', href: '#publicidad' },
   { label: 'Contacto', href: '#contacto' },
 ]
 
@@ -58,8 +56,4 @@ export const voices = [
 // (madrugadas y fines de semana).
 export const defaultShow = { show: 'Música continua', hosts: 'Lo mejor de Zumaque 90.5 FM' }
 
-export const podcasts = [
-  { title: 'Historias del Sinú', image: '/mock/podcasts/historias.jpg', desc: 'Relatos y personajes de nuestra región.', duration: '32 min' },
-  { title: 'Emprende Local', image: '/mock/podcasts/emprende.jpg', desc: 'Entrevistas a comerciantes y emprendedores.', duration: '25 min' },
-  { title: 'Deporte Total', image: '/mock/podcasts/deporte.jpg', desc: 'El análisis deportivo de la semana.', duration: '41 min' },
-]
+export const podcasts = []

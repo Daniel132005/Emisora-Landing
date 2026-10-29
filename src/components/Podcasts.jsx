@@ -126,6 +126,11 @@ export default function Podcasts() {
     }
   }
 
+  // Si no hay episodios del servidor ni podcasts configurados, ocultar la sección
+  if (episodes.length === 0 && (!defaultPodcasts || defaultPodcasts.length === 0)) {
+    return null
+  }
+
   // Filtrado de episodios
   const filteredEpisodes = episodes.filter((ep) => {
     if (activeFilter === 'all') return true

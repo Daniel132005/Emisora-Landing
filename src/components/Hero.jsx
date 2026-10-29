@@ -1,9 +1,18 @@
 import { useStation } from '../context/StationContext.jsx'
+import { useRadio } from '../context/RadioContext.jsx'
 
 export default function Hero() {
   const station = useStation()
+  const { playing, loading, toggle } = useRadio()
+
+  const handleListenClick = () => {
+    if (!playing && !loading) {
+      toggle()
+    }
+  }
+
   return (
-    <section id="inicio" className="hero" style={{ backgroundImage: `url(${station.heroImageUrl})` }}>
+    <section id="inicio" className="hero" style={station.heroImageUrl ? { backgroundImage: `url(${station.heroImageUrl})` } : undefined}>
       <div className="container hero__inner">
         <div className="hero__text">
           <p className="hero__kicker">{station.slogan}</p>
@@ -13,8 +22,7 @@ export default function Hero() {
           </h1>
           {station.heroText && <p className="hero__lead">{station.heroText}</p>}
           <div className="hero__actions">
-            <a href="#en-vivo" className="btn btn--primary">▶ Escuchar en vivo</a>
-            <a href="#publicidad" className="btn btn--ghost">Anuncia tu negocio</a>
+            <a href="#en-vivo" className="btn btn--primary" onClick={handleListenClick}>▶ Escuchar en vivo</a>
           </div>
         </div>
 

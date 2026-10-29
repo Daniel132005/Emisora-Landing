@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { station } from '../data/station.js'
 import { useSchedule } from '../context/ScheduleContext.jsx'
-import { DAY_NAMES, nowAtStation, programSubtitle, showTime, useCurrentShow } from '../hooks/useCurrentShow.js'
+import { DAY_NAMES, nowAtStation, showTime, useCurrentShow } from '../hooks/useCurrentShow.js'
 
 export default function Schedule() {
-  const { programs, hosts } = useSchedule()
+  const { programs } = useSchedule()
   const current = useCurrentShow()
   const today = nowAtStation().weekday
   const [day, setDay] = useState(today)
@@ -39,7 +39,7 @@ export default function Schedule() {
       )}
 
       {items.length === 0 ? (
-        <p className="section-sub">Pronto publicaremos la programación.</p>
+        <p className="schedule__empty">Pronto publicaremos la programación.</p>
       ) : (
         <ul className="schedule__list">
           {items.map((s) => {
@@ -49,7 +49,6 @@ export default function Schedule() {
                 <span className="schedule__time">{s.start} – {showTime(s.end)}</span>
                 <div>
                   <strong>{s.program.name}</strong>
-                  <span>{programSubtitle(s.program, hosts)}</span>
                 </div>
                 {live && <span className="badge">Al aire</span>}
               </li>

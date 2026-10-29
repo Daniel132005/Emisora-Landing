@@ -439,7 +439,8 @@ a { color: inherit; }
 .footer__copy { padding-bottom: 96px; }
 
 /* ---------- Layout principal ---------- */
-.content-grid { display: grid; grid-template-columns: 1fr 300px; gap: 28px; margin-top: 36px; }
+.content-grid { display: grid; grid-template-columns: 1fr 300px; gap: 28px; margin-block: 36px 56px; }
+.content-grid--no-side { grid-template-columns: 1fr; }
 .content-main { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
 .content-side {
   display: flex; flex-direction: column; gap: 16px;
@@ -493,6 +494,7 @@ a { color: inherit; }
 }
 .schedule__day:hover { border-color: var(--heading); color: var(--heading); }
 .schedule__day.is-active { background: var(--purple); border-color: var(--heading); color: #fff; }
+.schedule__empty { margin: 8px 0 0; padding: 20px 18px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border-left: 4px solid var(--purple-soft); color: var(--muted); font-size: .95rem; }
 .schedule__list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .schedule__list li {
   display: flex; align-items: center; gap: 14px; background: var(--card);
@@ -651,7 +653,7 @@ a { color: inherit; }
   .volume:not(.volume--compact) { display: none; }
 
   /* Publicidad */
-  .content-grid { margin-top: 24px; gap: 24px; }
+  .content-grid { margin-block: 24px 40px; gap: 24px; }
   .content-main { gap: 24px; }
   .ad--banner { aspect-ratio: 16 / 9; min-height: 0; }
   .ad--banner .ad__placeholder { padding: 14px 16px 24px; }

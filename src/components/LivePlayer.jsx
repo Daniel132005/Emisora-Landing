@@ -14,7 +14,6 @@ export default function LivePlayer() {
     error,
     isLive,
     liveInfo,
-    listeners,
     toggle,
     channels,
     currentChannel,
@@ -41,17 +40,15 @@ export default function LivePlayer() {
   // Identificar si estamos en un canal alternativo
   const isAltChannel = Boolean(currentChannel && currentChannel.slug !== 'matriz' && currentChannel.id !== 1 && currentChannel.id !== 'main')
 
-  const displayTitle = isAltChannel
-    ? currentChannel.name
-    : (isLive && liveInfo.program ? liveInfo.program : scheduled.show)
-
   const isGenericAdmin = (val) => !val || /administrador|admin/i.test(String(val).trim())
 
+  const displayTitle = isAltChannel
+    ? currentChannel.name
+    : (isLive && liveInfo.program && !isGenericAdmin(liveInfo.program) ? liveInfo.program : scheduled.show)
+
   const displaySubtitle = isAltChannel
-    ? `${currentChannel.genre || 'Transmisión Web Alternativa'} • ${currentChannel.bitrate_kbps || 128} kbps`
-    : (isLive
-        ? (liveInfo.host && !isGenericAdmin(liveInfo.host) ? `Con ${liveInfo.host}` : '')
-        : (scheduled.hosts && !isGenericAdmin(scheduled.hosts) ? scheduled.hosts : ''))
+    ? (currentChannel.genre || 'Transmisión Web Alternativa') + ' • ' + (currentChannel.bitrate_kbps || 128) + ' kbps'
+    : ''
 
   const trackCover = currentTrack?.coverUrl || currentTrack?.cover_url
   const coverUrl = trackCover
@@ -147,11 +144,6 @@ export default function LivePlayer() {
           )}
         </div>
 
-        {((isLive && !isAltChannel) || isAltChannel) && listeners > 0 && (
-          <span className="live__listeners-badge" aria-live="polite">
-            👥 {listeners} {listeners === 1 ? 'oyente' : 'oyentes'} ahora
-          </span>
-        )}
       </div>
 
       {/* Reproductor de Radio Visual en vivo */}
@@ -205,7 +197,7 @@ export default function LivePlayer() {
             <div className="player__info-block">
               <p className="player__now" aria-live="polite">
                 <strong>{displayTitle}</strong>
-                <span> • {displaySubtitle}</span>
+                {displaySubtitle && <span> • {displaySubtitle}</span>}
               </p>
 
               {/* Si hay canción sonando en la emisora o canal */}

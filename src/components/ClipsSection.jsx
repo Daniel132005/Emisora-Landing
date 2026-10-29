@@ -86,7 +86,7 @@ export default function ClipsSection() {
   if (clips.length === 0) return null
 
   return (
-    <section id="clips" className="clips-section">
+    <section id="clips" className="clips-section container">
       <div className="section-header">
         <div>
           <span className="section-badge">✨ Momentos Virales</span>
