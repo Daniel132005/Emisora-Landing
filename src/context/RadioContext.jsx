@@ -165,15 +165,16 @@ export function RadioProvider({ children }) {
       if (isAlt && targetChannel.slug) {
         targetSrc = `${API_URL}/api/public/channels/${targetChannel.slug}/stream`
         sourceName = 'channel'
+      } else if (isLive) {
+        // En vivo: TODOS los dispositivos (iPhone/iOS/Safari/Chrome, Android, PC, Mac)
+        // conectan directamente al stream MP3 universal de Icecast (/live.mp3).
+        // Es el estándar de la industria, nativo y sin latencia ni bloqueos de decodificación WebM.
+        targetSrc = `${ICECAST_URL}?_t=${Date.now()}`
+        sourceName = 'live'
       } else {
-        // En vivo: Safari e iOS no soportan WebM Opus nativo en audio HTML5, así que usamos el stream MP3 universal (/live.mp3)
-        if (isLive && !canPlayWebmOpus()) {
-          targetSrc = `${ICECAST_URL}?_t=${Date.now()}`
-          sourceName = 'live'
-        } else {
-          targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
-          sourceName = isLive ? 'live' : 'ambient'
-        }
+        // Fuera del aire: Audio ambiental continuo en MP3 desde /stream
+        targetSrc = `${MAIN_STREAM}?_t=${Date.now()}`
+        sourceName = 'ambient'
       }
 
       if (!wantPlay.current) return false
@@ -185,6 +186,7 @@ export function RadioProvider({ children }) {
       } catch {}
 
       audio.src = targetSrc
+      try { audio.load() } catch {}
 
       try {
         await audio.play()
@@ -378,12 +380,12 @@ export function RadioProvider({ children }) {
   }, [loading, scheduleReconnect])
 
   const toggle = useCallback(async () => {
-    if (playing) {
+    if (playing || loading || reconnecting) {
       stopPlayback()
     } else {
       await play()
     }
-  }, [playing, stopPlayback, play])
+  }, [playing, loading, reconnecting, stopPlayback, play])
 
   const currentChannelRef = useRef(currentChannel)
   useEffect(() => {

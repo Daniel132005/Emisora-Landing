@@ -290,8 +290,7 @@ export default function LivePlayer() {
           <button
             className="player__play"
             onClick={toggle}
-            aria-label={reconnecting ? 'Cancelar reconexión' : playing ? 'Pausar' : 'Reproducir'}
-            disabled={loading}
+            aria-label={reconnecting || loading ? 'Cancelar' : playing ? 'Pausar' : 'Reproducir'}
             title={reconnecting ? 'Reconectando… (pulsa para cancelar)' : (playing ? 'Pausar emisión' : 'Escuchar en vivo')}
           >
             {loading || reconnecting ? <span className="spinner" /> : playing ? '⏸' : '▶'}

@@ -39,8 +39,7 @@ export default function MiniPlayer() {
       <button
         className="player__play mini__play"
         onClick={toggle}
-        aria-label={reconnecting ? 'Cancelar reconexión' : playing ? 'Pausar' : 'Reproducir'}
-        disabled={loading}
+        aria-label={reconnecting || loading ? 'Cancelar' : playing ? 'Pausar' : 'Reproducir'}
       >
         {loading || reconnecting ? <span className="spinner" /> : playing ? '⏸' : '▶'}
       </button>
