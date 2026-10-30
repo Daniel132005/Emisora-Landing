@@ -22,6 +22,9 @@ export default function LivePlayer() {
     songVotes,
     rateCurrentTrack,
     visualRadio,
+    syncLive,
+    isSyncing,
+    driftSeconds,
   } = useRadio()
 
   const [shared, setShared] = useState(false)
@@ -186,12 +189,26 @@ export default function LivePlayer() {
           </div>
 
           <div className="player__meta">
-            <div className="player__status-line">
-              <span className={'badge-state' + ((isLive || isAltChannel) ? ' badge-state--live' : ' badge-state--off')}>
-                {isAltChannel
-                  ? `📻 EMISIÓN TEMÁTICA • ${currentChannel.genre || 'WEB'}`
-                  : (isLive ? '🔴 TRANSMISIÓN EN DIRECTO' : '⏳ PROGRAMACIÓN HABITUAL')}
-              </span>
+                        <div className="player__status-line">
+              <button
+                type="button"
+                className={`badge-state ${(isLive || isAltChannel) ? 'badge-state--live badge-state--clickable' : 'badge-state--off'} ${driftSeconds > 6 ? 'badge-state--warning' : ''}`}
+                onClick={syncLive}
+                disabled={isSyncing}
+                title="Toca para sincronizar y forzar la señal en directo"
+              >
+                {isSyncing ? (
+                  <>🔄 Sincronizando directo…</>
+                ) : driftSeconds > 6 ? (
+                  <>⚠️ Retraso (+${driftSeconds}s) · Toca para sincronizar</>
+                ) : isAltChannel ? (
+                  `📻 EMISIÓN TEMÁTICA • ${currentChannel.genre || 'WEB'}`
+                ) : isLive ? (
+                  <>🔴 EN VIVO • Sincronizado</>
+                ) : (
+                  '⏳ PROGRAMACIÓN HABITUAL'
+                )}
+              </button>
             </div>
 
             <div className="player__info-block">
@@ -280,7 +297,7 @@ export default function LivePlayer() {
             {loading || reconnecting ? <span className="spinner" /> : playing ? '⏸' : '▶'}
           </button>
 
-          <div className={'player__wave' + (playing ? ' is-playing' : '')} aria-hidden="true">
+<div className={'player__wave' + (playing ? ' is-playing' : '')} aria-hidden="true">
             {Array.from({ length: 28 }).map((_, i) => (
               <span key={i} style={{ animationDelay: ((i * 37) % 900) + 'ms' }} />
             ))}

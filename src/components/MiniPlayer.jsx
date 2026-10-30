@@ -8,7 +8,7 @@ import VolumeControl from './VolumeControl.jsx'
 
 /** Barra fija abajo que aparece cuando el reproductor principal sale de pantalla hacia arriba. */
 export default function MiniPlayer() {
-  const { playing, loading, reconnecting, isLive, liveInfo, toggle } = useRadio()
+  const { playing, loading, reconnecting, isLive, liveInfo, toggle, syncLive, isSyncing, driftSeconds } = useRadio()
   const station = useStation()
   const scheduled = useCurrentShow() ?? defaultShow
   const [visible, setVisible] = useState(false)
@@ -52,6 +52,15 @@ export default function MiniPlayer() {
         </span>
         <strong>{showTitle}</strong>
       </a>
+      <button
+        type="button"
+        className={`mini__sync-btn ${driftSeconds > 6 ? 'mini__sync-btn--warning' : ''}`}
+        onClick={syncLive}
+        disabled={isSyncing}
+        title="Sincronizar con la señal en directo"
+      >
+        {isSyncing ? '...' : driftSeconds > 6 ? `⚠️ +${driftSeconds}s` : '🔴 Sincronizar'}
+      </button>
       <VolumeControl compact />
     </div>
   )

@@ -67,6 +67,8 @@ export function RadioProvider({ children }) {
   const [ducked, setDucked] = useState(false)
   const [muted, setMuted] = useState(false)
   const [streamSource, setStreamSource] = useState(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [driftSeconds, setDriftSeconds] = useState(0)
 
   // Estado de emisión en vivo y oyentes
   const [isLive, setIsLive] = useState(false)
@@ -139,12 +141,15 @@ export function RadioProvider({ children }) {
     if (audioRef.current) {
       try {
         audioRef.current.pause()
+        audioRef.current.removeAttribute('src') // Purgar para no reanudar en el frame pausado
+        audioRef.current.load()
       } catch {}
     }
     setPlaying(false)
     setLoading(false)
     setReconnecting(false)
     setStreamSource(null)
+    setDriftSeconds(0)
   }, [clearTimers])
 
   /** Conectar señal de audio (Matriz o Canal Alternativo) */
@@ -173,6 +178,12 @@ export function RadioProvider({ children }) {
 
       if (!wantPlay.current) return false
 
+      try {
+        audio.pause()
+        audio.removeAttribute('src') // Antes de asignar nueva fuente
+        audio.load()
+      } catch {}
+
       audio.src = targetSrc
 
       try {
@@ -199,6 +210,80 @@ export function RadioProvider({ children }) {
       switching.current = false
     }
   }, [currentChannel, isLive])
+
+
+  /** Forzar resincronización inmediata al directo (purga el búfer y reconecta al instante) */
+  const syncLive = useCallback(async () => {
+    const audio = audioRef.current
+    if (!audio) return
+    setIsSyncing(true)
+    wantPlay.current = true
+    clearTimers()
+    retry.current = { timer: null, attempt: 0, since: 0 }
+
+    try {
+      try {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+      } catch {}
+
+      const ok = await connectAudio(currentChannel)
+      if (ok) {
+        setPlaying(true)
+        setDriftSeconds(0)
+        setError('')
+      }
+    } catch (err) {
+      console.warn('[Radio] Error al forzar sincronización con el directo:', err)
+    } finally {
+      setTimeout(() => {
+        if (!unmounted.current) setIsSyncing(false)
+      }, 700)
+    }
+  }, [connectAudio, currentChannel, clearTimers])
+
+  // Monitoreo de desfase respecto al borde en vivo y auto-sincronización tras regreso de pestaña
+  useEffect(() => {
+    if (!playing) {
+      setDriftSeconds(0)
+      return
+    }
+
+    const checkDrift = () => {
+      const audio = audioRef.current
+      if (!audio || !audio.buffered || audio.buffered.length === 0) return
+      try {
+        const liveEnd = audio.buffered.end(audio.buffered.length - 1)
+        const current = audio.currentTime
+        const drift = Math.max(0, liveEnd - current)
+        setDriftSeconds(drift > 4 ? Math.round(drift) : 0)
+      } catch {}
+    }
+
+    const interval = setInterval(checkDrift, 2500)
+    return () => clearInterval(interval)
+  }, [playing])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wantPlay.current && audioRef.current) {
+        const audio = audioRef.current
+        if (audio.buffered && audio.buffered.length > 0) {
+          try {
+            const liveEnd = audio.buffered.end(audio.buffered.length - 1)
+            const drift = liveEnd - audio.currentTime
+            if (drift > 12) {
+              console.log(`[Radio] Retorno a pestaña con ${Math.round(drift)}s de retraso. Resincronizando al directo...`)
+              syncLive()
+            }
+          } catch {}
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [syncLive])
 
   const connectAudioRef = useRef(connectAudio)
   useEffect(() => {
