@@ -1069,3 +1069,456 @@ button.badge-state:disabled {
   cursor: wait;
   opacity: 0.8;
 }
+
+/* ==========================================================================
+   Espacios Publicitarios Dinámicos con Múltiples Imágenes y WhatsApp
+   ========================================================================== */
+.dynamic-ad {
+  position: relative;
+  background: #ffffff;
+  border: 1.5px solid var(--line, #e7e1ee);
+  border-radius: var(--radius, 16px);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(46, 5, 72, 0.06);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.dynamic-ad:hover {
+  border-color: rgba(255, 90, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.dynamic-ad__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dynamic-ad__badge {
+  font-family: var(--font-display, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #ff5a00;
+  background: rgba(255, 90, 0, 0.12);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.dynamic-ad__counter {
+  font-size: 0.75rem;
+  color: var(--muted, #aaa);
+}
+
+.dynamic-ad__body {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.dynamic-ad--sidebar .dynamic-ad__body {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .dynamic-ad--banner .dynamic-ad__body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+}
+
+.dynamic-ad__media {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #faf8fc;
+  border: 1px solid var(--line, #e7e1ee);
+  flex-shrink: 0;
+  width: 220px;
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.dynamic-ad--sidebar .dynamic-ad__media {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+@media (max-width: 640px) {
+  .dynamic-ad__media {
+    width: 100%;
+  }
+}
+
+.dynamic-ad__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.4s ease;
+}
+
+.dynamic-ad__dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 2;
+}
+
+.dynamic-ad__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dynamic-ad__dot--active {
+  background: #ff5a00;
+  width: 16px;
+  border-radius: 4px;
+}
+
+.dynamic-ad__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.dynamic-ad__title {
+  margin: 0;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--ink, #1d1626);
+  line-height: 1.25;
+}
+
+.dynamic-ad__desc {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted, #6b6476);
+  line-height: 1.5;
+}
+
+.dynamic-ad__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.dynamic-ad__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.dynamic-ad__btn--wa {
+  background: #25d366;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+}
+
+.dynamic-ad__btn--wa:hover {
+  background: #20ba59;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.5);
+}
+
+.dynamic-ad__btn--call {
+  background: #ffffff;
+  color: var(--ink, #1d1626);
+  border: 1.5px solid var(--line, #e7e1ee);
+}
+
+.dynamic-ad__btn--call:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.dynamic-ad__btn--link {
+  background: #fff8f5;
+  color: var(--orange, #ff5a00);
+  border: 1.5px solid rgba(255, 90, 0, 0.35);
+}
+
+.dynamic-ad__btn--link:hover {
+  background: rgba(255, 90, 0, 0.12);
+  color: #ff7824;
+}
+
+/* Banner Horizontal de Ancho Completo (Toda la imagen) */
+.dynamic-ad--banner-full {
+  padding: 0 !important;
+  border: 1.5px solid var(--line, #e7e1ee);
+  border-radius: var(--radius, 16px);
+  overflow: hidden;
+  background: var(--card, #ffffff);
+}
+.dynamic-ad__banner-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 6;
+  min-height: 150px;
+  max-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #faf8fc;
+  overflow: hidden;
+}
+.dynamic-ad__banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.dynamic-ad--banner-full:hover .dynamic-ad__banner-img {
+  transform: scale(1.02);
+}
+.dynamic-ad__banner-top {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 3;
+}
+.dynamic-ad__banner-top .dynamic-ad__badge {
+  background: rgba(255, 90, 0, 0.9);
+  color: #fff;
+}
+.dynamic-ad__banner-top .dynamic-ad__counter {
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.dynamic-ad__banner-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+  padding: 24px 16px 12px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 3;
+}
+.dynamic-ad__banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.dynamic-ad__banner-title {
+  margin: 0;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dynamic-ad__banner-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Píldora de Navegación con Flechitas para rotar cuando el usuario desee */
+.dynamic-ad__nav-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 2px 4px;
+  gap: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  z-index: 5;
+}
+
+.dynamic-ad__nav-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff !important;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 0;
+  margin: 0;
+  transition: all 0.15s ease;
+}
+
+.dynamic-ad__nav-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.18);
+}
+
+.dynamic-ad__nav-btn:active {
+  transform: scale(0.92);
+}
+
+.dynamic-ad__nav-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffffff !important;
+  padding: 0 4px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* Flyer Vertical de Barra Lateral (Abarca toda la imagen edge-to-edge) */
+.dynamic-ad--sidebar-full {
+  padding: 0 !important;
+  border-radius: var(--radius, 16px);
+  overflow: hidden;
+  background: var(--card, #ffffff);
+  border: 1.5px solid var(--line, #e7e1ee);
+  box-shadow: 0 4px 18px rgba(46, 5, 72, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.dynamic-ad__flyer-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  min-height: 280px;
+  max-height: 420px;
+  overflow: hidden;
+  background: #faf8fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dynamic-ad__flyer-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+
+.dynamic-ad--sidebar-full:hover .dynamic-ad__flyer-img {
+  transform: scale(1.025);
+}
+
+.dynamic-ad__flyer-top {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 3;
+}
+
+.dynamic-ad__flyer-top .dynamic-ad__badge {
+  background: rgba(255, 90, 0, 0.9);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dynamic-ad__flyer-footer {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+}
+
+.dynamic-ad__flyer-footer .dynamic-ad__title {
+  margin: 0;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--ink, #1d1626);
+  line-height: 1.25;
+}
+
+.dynamic-ad__flyer-footer .dynamic-ad__desc {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted, #6b6476);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dynamic-ad__flyer-footer .dynamic-ad__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.dynamic-ad__flyer-footer .dynamic-ad__btn--wa {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 16px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  border-radius: 12px;
+}
+
+.dynamic-ad__flyer-footer .dynamic-ad__btn--link {
+  width: 100%;
+  justify-content: center;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  border-radius: 10px;
+}
