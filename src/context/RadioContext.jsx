@@ -100,6 +100,10 @@ export function RadioProvider({ children }) {
   const retry = useRef({ timer: null, attempt: 0, since: 0 })
   const unmounted = useRef(false)
   const wsRef = useRef(null)
+  const streamSourceRef = useRef(streamSource)
+  useEffect(() => {
+    streamSourceRef.current = streamSource
+  }, [streamSource])
 
   // Sincronizar volumen con soporte de atenuación suave (ducking) para notas de voz al aire
   useEffect(() => {
@@ -214,22 +218,31 @@ export function RadioProvider({ children }) {
   }, [currentChannel, isLive])
 
 
-  /** Forzar resincronización inmediata al directo (purga el búfer y reconecta al instante) */
+  /** Forzar resincronización inmediata al directo sin cortar la señal (salto en memoria o reconexión limpia) */
   const syncLive = useCallback(async () => {
     const audio = audioRef.current
     if (!audio) return
     setIsSyncing(true)
     wantPlay.current = true
-    clearTimers()
-    retry.current = { timer: null, attempt: 0, since: 0 }
 
     try {
-      try {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      } catch {}
+      // 1. Si ya hay búfer cargado por delante, saltar directamente en memoria sin destruir el socket ni cortar el audio
+      if (audio.buffered && audio.buffered.length > 0) {
+        const liveEnd = audio.buffered.end(audio.buffered.length - 1)
+        if (Number.isFinite(liveEnd) && liveEnd > audio.currentTime) {
+          audio.currentTime = Math.max(0, liveEnd - 2)
+          audio.playbackRate = 1.0
+          if (audio.paused) {
+            await audio.play().catch(() => {})
+          }
+          setDriftSeconds(0)
+          return
+        }
+      }
 
+      // 2. Solo si no hay búfer o hubo fallo, reconectar limpiamente
+      clearTimers()
+      retry.current = { timer: null, attempt: 0, since: 0 }
       const ok = await connectAudio(currentChannel)
       if (ok) {
         setPlaying(true)
@@ -245,10 +258,13 @@ export function RadioProvider({ children }) {
     }
   }, [connectAudio, currentChannel, clearTimers])
 
-  // Monitoreo de desfase respecto al borde en vivo y auto-sincronización tras regreso de pestaña
+  // Monitoreo de desfase respecto al borde en vivo y auto-sincronización suave sin cortes
   useEffect(() => {
     if (!playing) {
       setDriftSeconds(0)
+      if (audioRef.current && audioRef.current.playbackRate !== 1.0) {
+        audioRef.current.playbackRate = 1.0
+      }
       return
     }
 
@@ -260,6 +276,15 @@ export function RadioProvider({ children }) {
         const current = audio.currentTime
         const drift = Math.max(0, liveEnd - current)
         setDriftSeconds(drift > 4 ? Math.round(drift) : 0)
+
+        // Resincronización adaptativa inteligente sin cortes (Catch-up suave):
+        // Si el oyente se atrasa entre 18s y 45s (por buffering o pestaña en fondo),
+        // aceleramos imperceptiblemente a 1.04x para recuperar el directo sin saltos ni cortes audibles.
+        if (drift > 18 && audio.playbackRate !== 1.04) {
+          audio.playbackRate = 1.04
+        } else if (drift <= 12 && audio.playbackRate !== 1.0) {
+          audio.playbackRate = 1.0
+        }
       } catch {}
     }
 
@@ -275,9 +300,11 @@ export function RadioProvider({ children }) {
           try {
             const liveEnd = audio.buffered.end(audio.buffered.length - 1)
             const drift = liveEnd - audio.currentTime
-            if (drift > 12) {
-              console.log(`[Radio] Retorno a pestaña con ${Math.round(drift)}s de retraso. Resincronizando al directo...`)
-              syncLive()
+            // Solo si el desfase acumulado es realmente extremo (> 45s) tras una suspensión larga del teléfono
+            if (drift > 45) {
+              console.log(`[Radio] Retorno a pestaña con ${Math.round(drift)}s de retraso. Saltando al directo en memoria...`)
+              audio.currentTime = Math.max(0, liveEnd - 2)
+              audio.playbackRate = 1.0
             }
           } catch {}
         }
@@ -285,7 +312,7 @@ export function RadioProvider({ children }) {
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [syncLive])
+  }, [])
 
   const connectAudioRef = useRef(connectAudio)
   useEffect(() => {
@@ -398,12 +425,13 @@ export function RadioProvider({ children }) {
 
     const fetchInitialData = async () => {
       try {
-        const [chRes, npRes, pollRes, vrRes, boothRes] = await Promise.allSettled([
+        const [chRes, npRes, pollRes, vrRes, boothRes, statusRes] = await Promise.allSettled([
           fetch(`${API_URL}/api/public/channels`),
           fetch(`${API_URL}/api/public/now-playing`),
           fetch(`${API_URL}/api/public/polls/active`),
           fetch(`${API_URL}/api/public/visual-radio`),
           fetch(`${API_URL}/api/public/booth/active`),
+          fetch(`${API_URL}/api/status`),
         ])
 
         if (chRes.status === 'fulfilled' && chRes.value.ok) {
@@ -453,6 +481,20 @@ export function RadioProvider({ children }) {
             setBoothOnAir(bData)
           } else {
             setBoothOnAir(null)
+          }
+        }
+        if (statusRes && statusRes.status === 'fulfilled' && statusRes.value.ok) {
+          const sData = await statusRes.value.json()
+          if (sData) {
+            setIsLive(Boolean(sData.live))
+            setLiveInfo({
+              program: sData.program || '',
+              host: sData.host || '',
+              startedAt: sData.startedAt || null,
+            })
+            if (typeof sData.listeners === 'number') {
+              setListeners(sData.listeners)
+            }
           }
         }
       } catch (e) {
@@ -506,9 +548,11 @@ export function RadioProvider({ children }) {
                 if (prevLive !== nowLive) {
                   // Si el locutor acaba de salir al aire o cortar emisión, y el oyente está en la señal matriz:
                   const isMain = !currentChannelRef.current || currentChannelRef.current.slug === 'matriz'
-                  if (wantPlay.current && isMain) {
+                  const neededSource = nowLive ? 'live' : 'ambient'
+                  // Solo conmutar si el stream activo no corresponde ya al origen deseado
+                  if (wantPlay.current && isMain && streamSourceRef.current !== neededSource) {
                     setTimeout(() => {
-                      if (wantPlay.current) {
+                      if (wantPlay.current && streamSourceRef.current !== (nowLive ? 'live' : 'ambient')) {
                         connectAudioRef.current?.(null)
                       }
                     }, 300)
