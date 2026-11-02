@@ -183,14 +183,9 @@ export function RadioProvider({ children }) {
 
       if (!wantPlay.current) return false
 
-      try {
-        audio.pause()
-        audio.removeAttribute('src') // Antes de asignar nueva fuente
-        audio.load()
-      } catch {}
-
-      audio.src = targetSrc
-      try { audio.load() } catch {}
+      if (audio.src !== targetSrc) {
+        audio.src = targetSrc
+      }
 
       try {
         await audio.play()
@@ -198,7 +193,18 @@ export function RadioProvider({ children }) {
         setError('')
         return true
       } catch (err) {
-        // Respaldo para iOS/Safari: si falló /stream y estamos en vivo, conmutar al instante al MP3 de Icecast
+        // Respaldo bidireccional si falla la fuente primaria:
+        // 1. Si falló Icecast en vivo (/live.mp3), intentar de inmediato el stream directo /stream
+        if (isLive && targetSrc.includes('live.mp3') && !isAlt) {
+          try {
+            audio.src = `${MAIN_STREAM}?_t=${Date.now()}`
+            await audio.play()
+            setStreamSource('ambient')
+            setError('')
+            return true
+          } catch {}
+        }
+        // 2. Respaldo para iOS/Safari: si falló /stream y estamos en vivo, conmutar al MP3 de Icecast
         if (isLive && !targetSrc.includes('live.mp3') && !isAlt) {
           try {
             audio.src = `${ICECAST_URL}?_t=${Date.now()}`
@@ -361,7 +367,19 @@ export function RadioProvider({ children }) {
     wantPlay.current = true
     retry.current = { timer: null, attempt: 0, since: 0 }
     setLoading(true)
-    const ok = await connectAudio(chanToPlay)
+
+    // 1. Intento inmediato aprovechando el toque táctil del usuario
+    let ok = await connectAudio(chanToPlay)
+
+    // 2. Reintento silencioso inteligente si la señal estaba arrancando (Icecast montando /live.mp3)
+    //    o si la red móvil tardó en recibir el primer paquete de audio.
+    if (!ok && wantPlay.current) {
+      await new Promise((r) => setTimeout(r, 1200))
+      if (wantPlay.current) {
+        ok = await connectAudio(chanToPlay)
+      }
+    }
+
     setLoading(false)
     if (ok) {
       setPlaying(true)
